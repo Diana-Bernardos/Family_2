@@ -20,13 +20,13 @@ export default function TabLayout() {
           },
           tabBarActiveTintColor: THEME_COLORS.primary,
           tabBarInactiveTintColor: "#94a3b8",
-          headerShown: false, // Cambiamos esto a false para ocultar el encabezado
+          headerShown: false, // Mantenemos el encabezado oculto
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
-            title: "Calendario Familiar",
+            title: "Calendario",
             tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
           }}
         />
@@ -48,4 +48,3 @@ export default function TabLayout() {
     </View>
   )
 }
-

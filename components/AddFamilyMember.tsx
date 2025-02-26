@@ -1,15 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import { useFamilyStore, THEME_COLORS } from "../stores/familyStore"
 import { Camera, X } from "lucide-react-native"
 
-export default function AddFamilyMember({ onClose }: { onClose: () => void }) {
+export default function AddFamilyMember({ 
+  onClose, 
+  memberToEdit = null 
+}: { 
+  onClose: () => void,
+  memberToEdit?: any
+}) {
   const [name, setName] = useState("")
   const [avatar, setAvatar] = useState("")
-  const addMember = useFamilyStore((state) => state.addMember)
+  const { addMember, updateMember } = useFamilyStore()
+  
+  // Si se está editando un miembro, inicializar con sus datos
+  useEffect(() => {
+    if (memberToEdit) {
+      setName(memberToEdit.name)
+      setAvatar(memberToEdit.avatar)
+    }
+  }, [memberToEdit])
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -26,11 +40,22 @@ export default function AddFamilyMember({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = () => {
     if (name.trim()) {
-      addMember({
-        id: Date.now().toString(),
-        name: name.trim(),
-        avatar: avatar || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200",
-      })
+      if (memberToEdit) {
+        // Editar miembro existente
+        updateMember(memberToEdit.id, {
+          name: name.trim(),
+          avatar: avatar || memberToEdit.avatar,
+        })
+        console.log(`Miembro actualizado: ${name}`)
+      } else {
+        // Añadir nuevo miembro
+        addMember({
+          id: Date.now().toString(),
+          name: name.trim(),
+          avatar: avatar || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200",
+        })
+        console.log(`Nuevo miembro añadido: ${name}`)
+      }
       onClose()
     }
   }
@@ -40,11 +65,13 @@ export default function AddFamilyMember({ onClose }: { onClose: () => void }) {
       <TouchableOpacity style={styles.closeButton} onPress={onClose}>
         <X color={THEME_COLORS.primary} size={24} />
       </TouchableOpacity>
-      <Text style={styles.title}>Añadir Familiar</Text>
+      <Text style={styles.title}>{memberToEdit ? "Editar Familiar" : "Añadir Familiar"}</Text>
 
       <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
         {avatar ? (
           <Image source={{ uri: avatar }} style={styles.avatar} />
+        ) : memberToEdit && memberToEdit.avatar ? (
+          <Image source={{ uri: memberToEdit.avatar }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarPlaceholder}>
             <Camera size={32} color={THEME_COLORS.primary} />
@@ -52,14 +79,19 @@ export default function AddFamilyMember({ onClose }: { onClose: () => void }) {
         )}
       </TouchableOpacity>
 
-      <TextInput style={styles.input} placeholder="Nombre del familiar" value={name} onChangeText={setName} />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Nombre del familiar" 
+        value={name} 
+        onChangeText={setName} 
+      />
 
       <TouchableOpacity
         style={[styles.button, !name.trim() && styles.buttonDisabled]}
         onPress={handleSubmit}
         disabled={!name.trim()}
       >
-        <Text style={styles.buttonText}>Guardar</Text>
+        <Text style={styles.buttonText}>{memberToEdit ? "Actualizar" : "Guardar"}</Text>
       </TouchableOpacity>
     </View>
   )
@@ -127,4 +159,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 })
-

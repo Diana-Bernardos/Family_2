@@ -23,10 +23,10 @@ export default function RootLayout() {
       ) : (
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="personal" options={{ headerShown: false, presentation: 'modal' }} />
         </Stack>
       )}
       <StatusBar style="auto" />
     </>
   )
 }
-
