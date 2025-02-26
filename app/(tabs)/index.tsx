@@ -6,7 +6,6 @@ import { Calendar as CalendarComponent } from "react-native-calendars"
 import { Plus, ArrowLeft, Book, ShoppingCart, Briefcase, HeartPulse, Utensils, Dumbbell, Trash2 } from "lucide-react-native"
 import { useFamilyStore, THEME_COLORS } from "../../stores/familyStore"
 import AddEvent from "../../components/AddEvent"
-import { useNavigation } from "@react-navigation/native"
 import { router } from "expo-router"
 
 // Mapa de tipos de eventos a iconos
@@ -21,25 +20,21 @@ const eventIcons = {
 }
 
 export default function FamilyCalendar() {
-  const { events, members, removeEvent } = useFamilyStore((state) => ({
-    events: state.events,
-    members: state.members,
-    removeEvent: state.removeEvent
-  }))
+  // Obtener toda la instancia del store
+  const store = useFamilyStore();
   
   const [selected, setSelected] = useState("")
   const [modalVisible, setModalVisible] = useState(false)
   const [eventToEdit, setEventToEdit] = useState(null)
-  const navigation = useNavigation()
   
   // Para asegurar que la UI se actualiza cuando cambia el estado del store
   const [refresh, setRefresh] = useState(0)
   
   useEffect(() => {
-    console.log("Eventos actuales:", events.length)
-  }, [events, refresh])
+    console.log("Eventos actuales:", store.events.length);
+  }, [store.events, refresh])
 
-  const markedDates = events.reduce((acc, event) => {
+  const markedDates = store.events.reduce((acc, event) => {
     acc[event.date] = {
       marked: true,
       dotColor: event.color || THEME_COLORS.primary,
@@ -49,17 +44,23 @@ export default function FamilyCalendar() {
 
   // Navegar al calendario personal de un miembro
   const navigateToPersonalCalendar = (memberId) => {
-    router.push({
-      pathname: "/personal",
-      params: { memberId },
-    })
+    console.log("Navegando al calendario personal del miembro:", memberId);
+    router.push(`/personal?memberId=${memberId}`);
   }
 
-  const handleDeleteEvent = (eventId: string) => {
-    console.log('Intentando eliminar evento con ID:', eventId)
+  // Función directa para eliminar evento
+  const debugDeleteEvent = (eventId) => {
+    console.log('DEPURACIÓN: Llamando directamente a removeEvent con ID:', eventId);
+    store.removeEvent(eventId);
+    setRefresh(prev => prev + 1);
+  }
+
+  const handleDeleteEvent = (eventId) => {
+    console.log('Intentando eliminar evento con ID:', eventId);
+    
     Alert.alert(
       "Confirmar eliminación",
-      "¿Estás seguro que deseas eliminar este evento?",
+      `¿Estás seguro que deseas eliminar este evento? (ID: ${eventId})`,
       [
         {
           text: "Cancelar",
@@ -68,11 +69,26 @@ export default function FamilyCalendar() {
         { 
           text: "Eliminar", 
           onPress: () => {
-            console.log('Eliminando evento con ID:', eventId)
-            removeEvent(eventId)
-            
-            // Forzar actualización de la UI
-            setRefresh(prev => prev + 1)
+            try {
+              console.log('Confirmado: eliminando evento con ID:', eventId);
+              
+              // Llamar directamente a la función del store
+              store.removeEvent(eventId);
+              
+              // Forzar actualización de la UI
+              setRefresh(prev => prev + 1);
+              
+              Alert.alert(
+                "Evento eliminado",
+                "El evento ha sido eliminado correctamente."
+              );
+            } catch (error) {
+              console.error("Error al eliminar evento:", error);
+              Alert.alert(
+                "Error",
+                "Ocurrió un error al intentar eliminar el evento."
+              );
+            }
           },
           style: "destructive"
         }
@@ -82,22 +98,29 @@ export default function FamilyCalendar() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <ArrowLeft color={THEME_COLORS.primary} size={24} />
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Calendario Familiar</Text>
+      </View>
 
       {/* Sección de fotos de miembros de la familia */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.familyAvatars}>
-        {members.map((member) => (
-          <TouchableOpacity 
-            key={member.id} 
-            style={styles.avatarContainer}
-            onPress={() => navigateToPersonalCalendar(member.id)}
-          >
-            <Image source={{ uri: member.avatar }} style={styles.avatar} />
-            <Text style={styles.memberName}>{member.name}</Text>
-          </TouchableOpacity>
-        ))}
+        {store.members.length === 0 ? (
+          <View style={styles.emptyAvatars}>
+            <Text style={styles.emptyAvatarsText}>Agrega miembros en la pestaña Familia</Text>
+          </View>
+        ) : (
+          store.members.map((member) => (
+            <TouchableOpacity 
+              key={member.id} 
+              style={styles.avatarContainer}
+              onPress={() => navigateToPersonalCalendar(member.id)}
+              activeOpacity={0.7}
+            >
+              <Image source={{ uri: member.avatar }} style={styles.avatar} />
+              <Text style={styles.memberName}>{member.name}</Text>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
 
       <View style={styles.calendarContainer}>
@@ -119,47 +142,60 @@ export default function FamilyCalendar() {
       </View>
 
       <ScrollView style={styles.eventList}>
-        {events
-          .filter((event) => event.date === selected)
-          .map((event, index) => {
-            // Determinar qué icono mostrar basado en el tipo de evento
-            const IconComponent = event.type && eventIcons[event.type] ? eventIcons[event.type] : Briefcase;
-            
-            // Encontrar el miembro al que pertenece este evento
-            const member = members.find(m => m.id === event.memberId);
-            
-            return (
-              <View key={event.id} style={[styles.eventCard, { backgroundColor: event.color }]}>
-                <View style={styles.eventIconContainer}>
-                  <IconComponent size={24} color="#1f2937" />
+        {!selected ? (
+          <Text style={styles.selectDateText}>Selecciona una fecha para ver los eventos</Text>
+        ) : store.events.filter(event => event.date === selected).length === 0 ? (
+          <Text style={styles.noEventsText}>No hay eventos para esta fecha</Text>
+        ) : (
+          store.events
+            .filter(event => event.date === selected)
+            .map(event => {
+              // Determinar qué icono mostrar basado en el tipo de evento
+              const IconComponent = event.type && eventIcons[event.type] ? eventIcons[event.type] : Briefcase;
+              
+              // Encontrar el miembro al que pertenece este evento
+              const member = store.members.find(m => m.id === event.memberId);
+              
+              return (
+                <View key={event.id} style={[styles.eventCard, { backgroundColor: event.color }]}>
+                  <View style={styles.eventIconContainer}>
+                    <IconComponent size={24} color="#1f2937" />
+                  </View>
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <Text style={styles.eventTime}>{event.time}</Text>
+                    {member && (
+                      <View style={styles.eventMember}>
+                        <Image source={{ uri: member.avatar }} style={styles.eventMemberAvatar} />
+                        <Text style={styles.eventMemberName}>{member.name}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.deleteEventButton}
+                    onPress={() => debugDeleteEvent(event.id)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Trash2 size={20} color="#ef4444" />
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventTime}>{event.time}</Text>
-                  {member && (
-                    <View style={styles.eventMember}>
-                      <Image source={{ uri: member.avatar }} style={styles.eventMemberAvatar} />
-                      <Text style={styles.eventMemberName}>{member.name}</Text>
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity 
-                  style={styles.deleteEventButton}
-                  onPress={() => handleDeleteEvent(event.id)}
-                >
-                  <Trash2 size={18} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
-            );
-          })}
+              );
+            })
+        )}
       </ScrollView>
 
       <TouchableOpacity 
         style={styles.fab} 
         onPress={() => {
           if (selected) {
-            setEventToEdit(null); // Aseguramos que estamos en modo añadir, no editar
+            setEventToEdit(null);
             setModalVisible(true);
+          } else {
+            Alert.alert(
+              "Selecciona una fecha",
+              "Por favor, selecciona una fecha en el calendario para añadir un evento."
+            );
           }
         }}
       >
@@ -177,7 +213,7 @@ export default function FamilyCalendar() {
             <AddEvent 
               onClose={() => {
                 setModalVisible(false);
-                setRefresh(prev => prev + 1); // Actualizar UI después de añadir evento
+                setRefresh(prev => prev + 1);
               }} 
               selectedDate={selected}
               eventToEdit={eventToEdit}
@@ -194,14 +230,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent",
   },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: THEME_COLORS.primary,
+  },
   familyAvatars: {
     flexDirection: "row",
     padding: 16,
-    paddingTop: 50, // Para ajustar al botón de retroceso
+    minHeight: 100,
+  },
+  emptyAvatars: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  emptyAvatarsText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   avatarContainer: {
     alignItems: "center",
     marginRight: 16,
+    width: 70,
   },
   avatar: {
     width: 60,
@@ -225,6 +285,20 @@ const styles = StyleSheet.create({
   eventList: {
     flex: 1,
     padding: 16,
+  },
+  selectDateText: {
+    fontSize: 16,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  noEventsText: {
+    fontSize: 16,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 20,
   },
   eventCard: {
     flexDirection: "row",
@@ -275,11 +349,12 @@ const styles = StyleSheet.create({
     color: "#1f2937",
   },
   deleteEventButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
-    width: 40,
-    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
   },
   fab: {
     position: "absolute",
@@ -307,11 +382,5 @@ const styles = StyleSheet.create({
     width: "90%",
     backgroundColor: "#fff",
     borderRadius: 12,
-  },
-  backButton: {
-    position: "absolute",
-    top: 40,
-    left: 20,
-    zIndex: 10,
   },
 })

@@ -2,6 +2,21 @@ import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
+// Limpiar explícitamente el almacenamiento anterior
+// Esta función se ejecuta cuando se importa este archivo
+const cleanStorage = async () => {
+  try {
+    await AsyncStorage.removeItem("family-store");
+    await AsyncStorage.removeItem("family-store-v2");
+    console.log("Almacenamiento limpiado correctamente");
+  } catch (error) {
+    console.error("Error al limpiar almacenamiento:", error);
+  }
+};
+
+// Ejecutar limpieza inmediatamente
+cleanStorage();
+
 export const THEME_COLORS = {
   primary: "#6366f1", // indigo
   secondary: "#a855f7", // púrpura
@@ -42,57 +57,16 @@ interface FamilyState {
   addEvent: (event: Event) => void
   updateEvent: (id: string, event: Partial<Event>) => void
   removeEvent: (id: string) => void
+  clearAllData: () => Promise<void>  // Nueva función para limpiar todos los datos
 }
 
 export const useFamilyStore = create<FamilyState>()(
   persist(
     (set, get) => ({
-      members: [
-        {
-          id: "1",
-          name: "Juan",
-          avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200",
-        },
-        {
-          id: "2",
-          name: "María",
-          avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-        },
-        {
-          id: "3",
-          name: "Pedro",
-          avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200",
-        },
-      ],
-      events: [
-        {
-          id: "1",
-          title: "Reunión de trabajo",
-          date: "2023-05-20",
-          time: "09:00",
-          color: THEME_COLORS.blue,
-          memberId: "1",
-          type: "trabajo",
-        },
-        {
-          id: "2",
-          title: "Cita médica",
-          date: "2023-05-22",
-          time: "16:30",
-          color: THEME_COLORS.green,
-          memberId: "2",
-          type: "salud",
-        },
-        {
-          id: "3",
-          title: "Clase de piano",
-          date: "2023-05-21",
-          time: "18:00",
-          color: THEME_COLORS.yellow,
-          memberId: "3",
-          type: "escuela",
-        },
-      ],
+      // Iniciamos con arrays vacíos
+      members: [],
+      events: [],
+      
       addMember: (member) => set((state) => ({ members: [...state.members, member] })),
       updateMember: (id, updatedMember) =>
         set((state) => ({
@@ -146,9 +120,21 @@ export const useFamilyStore = create<FamilyState>()(
         
         console.log(`Evento con ID ${id} eliminado`);
       },
+      clearAllData: async () => {
+        // Limpiar todos los datos del estado
+        set({ members: [], events: [] });
+        
+        // Limpiar también el almacenamiento para asegurar que los datos no se restauren
+        try {
+          await AsyncStorage.removeItem("family-store-v3");
+          console.log("Todos los datos han sido eliminados");
+        } catch (error) {
+          console.error("Error al limpiar datos:", error);
+        }
+      }
     }),
     {
-      name: "family-store",
+      name: "family-store-v3", // Cambiar el nombre del store para evitar conflictos
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
