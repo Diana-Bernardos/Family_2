@@ -1,5 +1,6 @@
+
 import { Tabs } from "expo-router"
-import { Calendar, Users, MessageSquare } from "lucide-react-native"
+import { Calendar, Users, MessageSquare, ShoppingBag, BookOpen } from "lucide-react-native"
 import { View } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { THEME_COLORS } from "../../stores/familyStore"
@@ -20,7 +21,7 @@ export default function TabLayout() {
           },
           tabBarActiveTintColor: THEME_COLORS.primary,
           tabBarInactiveTintColor: "#94a3b8",
-          headerShown: false, // Mantenemos el encabezado oculto
+          headerShown: false,
         }}
       >
         <Tabs.Screen
@@ -35,6 +36,20 @@ export default function TabLayout() {
           options={{
             title: "Familia",
             tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="shopping"
+          options={{
+            title: "Compras",
+            tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="school"
+          options={{
+            title: "Escuela",
+            tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} />,
           }}
         />
         <Tabs.Screen

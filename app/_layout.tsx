@@ -1,32 +1,64 @@
-"use client"
+import { Tabs } from "expo-router"
+import { Calendar, Users, MessageSquare, ShoppingBag, BookOpen } from "lucide-react-native"
+import { View } from "react-native"
+import { LinearGradient } from "expo-linear-gradient"
+import { THEME_COLORS } from "../stores/familyStore"
 
-import { useState, useEffect } from "react"
-import { Stack } from "expo-router"
-import { StatusBar } from "expo-status-bar"
-import SplashScreen from "./ShplashScreen"
-
-export default function RootLayout() {
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [])
-
+export default function TabLayout() {
   return (
-    <>
-      {isLoading ? (
-        <SplashScreen />
-      ) : (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="personal" options={{ headerShown: false, presentation: 'modal' }} />
-        </Stack>
-      )}
-      <StatusBar style="auto" />
-    </>
+    <View style={{ flex: 1 }}>
+      <LinearGradient
+        colors={THEME_COLORS.gradient}
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+      />
+      <Tabs
+        screenOptions={{
+          tabBarStyle: {
+            backgroundColor: "rgba(255, 255, 255, 0.8)",
+            borderTopWidth: 1,
+            borderTopColor: "#e5e5e5",
+          },
+          tabBarActiveTintColor: THEME_COLORS.primary,
+          tabBarInactiveTintColor: "#94a3b8",
+          headerShown: false,
+        }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Calendario",
+            tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="family"
+          options={{
+            title: "Familia",
+            tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="shopping"
+          options={{
+            title: "Compras",
+            tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="school"
+          options={{
+            title: "Escuela",
+            tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="assistant"
+          options={{
+            title: "Asistente",
+            tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
+          }}
+        />
+      </Tabs>
+    </View>
   )
 }
