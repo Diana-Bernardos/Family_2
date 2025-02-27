@@ -21,9 +21,7 @@ export default function PersonalCalendar() {
   const [modalVisible, setModalVisible] = useState(false);
   
   // Obtener directamente los datos y funciones del store
-  const removeEvent = useFamilyStore(state => state.removeEvent);
-  const members = useFamilyStore(state => state.members);
-  const events = useFamilyStore(state => state.events);
+  const { removeEvent, members, events } = useFamilyStore();
   
   // Obtener el ID del miembro de los parámetros
   const { memberId } = useLocalSearchParams();
@@ -59,8 +57,12 @@ export default function PersonalCalendar() {
     };
   }
 
-  const handleDeleteEvent = (eventId) => {
-    console.log('Intentando eliminar evento con ID:', eventId);
+  const handleDeleteEvent = async (eventId) => {
+    if (!eventId) {
+      console.error('ID de evento no válido para eliminación');
+      return;
+    }
+    
     Alert.alert(
       "Confirmar eliminación",
       "¿Estás seguro que deseas eliminar este evento?",
@@ -71,10 +73,23 @@ export default function PersonalCalendar() {
         },
         { 
           text: "Eliminar", 
-          onPress: () => {
-            console.log('Eliminando evento con ID:', eventId);
-            removeEvent(eventId);
-            setRefresh(prev => prev + 1);
+          onPress: async () => {
+            try {
+              console.log('Eliminando evento con ID:', eventId);
+              await removeEvent(eventId);
+              setRefresh(prev => prev + 1);
+              
+              Alert.alert(
+                "Evento eliminado",
+                "El evento ha sido eliminado correctamente."
+              );
+            } catch (error) {
+              console.error("Error al eliminar evento:", error);
+              Alert.alert(
+                "Error",
+                "Ocurrió un error al intentar eliminar el evento."
+              );
+            }
           },
           style: "destructive"
         }
@@ -138,11 +153,15 @@ export default function PersonalCalendar() {
                 <View style={styles.eventInfo}>
                   <Text style={styles.eventTitle}>{event.title}</Text>
                   <Text style={styles.eventTime}>{event.time}</Text>
+                  {event.description && (
+                    <Text style={styles.eventDescription}>{event.description}</Text>
+                  )}
                 </View>
                 <TouchableOpacity 
                   style={styles.deleteEventButton}
                   onPress={() => handleDeleteEvent(event.id)}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Trash2 size={18} color="#ef4444" />
                 </TouchableOpacity>
@@ -277,12 +296,19 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
   },
+  eventDescription: {
+    fontSize: 12,
+    color: '#1f2937',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   deleteEventButton: {
-    padding: 8,
     justifyContent: "center",
     alignItems: "center",
     width: 40, 
     height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 20,
   },
   fab: {
     position: 'absolute',

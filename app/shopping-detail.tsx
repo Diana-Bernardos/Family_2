@@ -7,7 +7,13 @@ import AddShoppingItem from "../components/AddShoppingItem"
 
 export default function ShoppingListDetail() {
   const { listId } = useLocalSearchParams();
-  const { shoppingLists, toggleShoppingItem, removeShoppingItem, members } = useFamilyStore();
+  const { 
+    shoppingLists, 
+    toggleShoppingItem, 
+    removeShoppingItem, 
+    members 
+  } = useFamilyStore();
+  
   const [modalVisible, setModalVisible] = useState(false);
   const [refresh, setRefresh] = useState(0);
 
@@ -20,14 +26,29 @@ export default function ShoppingListDetail() {
     return member ? member.name : "Desconocido";
   };
 
-  const handleToggleItem = (itemId: string) => {
-    if (!list) return;
-    toggleShoppingItem(list.id, itemId);
-    setRefresh(prev => prev + 1);
+  const handleToggleItem = async (itemId: string) => {
+    if (!list || !itemId) {
+      console.error('ID de lista o item no válido');
+      return;
+    }
+    
+    try {
+      await toggleShoppingItem(list.id, itemId);
+      setRefresh(prev => prev + 1);
+    } catch (error) {
+      console.error("Error al cambiar estado del item:", error);
+      Alert.alert(
+        "Error",
+        "Ocurrió un error al intentar marcar/desmarcar el item."
+      );
+    }
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    if (!list) return;
+  const handleDeleteItem = async (itemId: string) => {
+    if (!list || !itemId) {
+      console.error('ID de lista o item no válido para eliminación');
+      return;
+    }
     
     Alert.alert(
       "Confirmar eliminación",
@@ -39,9 +60,24 @@ export default function ShoppingListDetail() {
         },
         { 
           text: "Eliminar", 
-          onPress: () => {
-            removeShoppingItem(list.id, itemId);
-            setRefresh(prev => prev + 1);
+          onPress: async () => {
+            try {
+              await removeShoppingItem(list.id, itemId);
+              setRefresh(prev => prev + 1);
+              
+              console.log(`Item ${itemId} eliminado de la lista ${list.id}`);
+              
+              Alert.alert(
+                "Producto eliminado",
+                "El producto ha sido eliminado de la lista."
+              );
+            } catch (error) {
+              console.error("Error al eliminar item:", error);
+              Alert.alert(
+                "Error",
+                "Ocurrió un error al intentar eliminar el item."
+              );
+            }
           },
           style: "destructive"
         }
@@ -294,6 +330,12 @@ const styles = StyleSheet.create({
   },
   deleteItemButton: {
     padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fab: {
     position: "absolute",

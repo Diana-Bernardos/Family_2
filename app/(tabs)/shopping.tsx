@@ -12,7 +12,12 @@ export default function ShoppingLists() {
   const [modalVisible, setModalVisible] = useState(false);
   const [refresh, setRefresh] = useState(0);
 
-  const handleDeleteList = (id: string) => {
+  const handleDeleteList = async (id) => {
+    if (!id) {
+      console.error('ID de lista no válido para eliminación');
+      return;
+    }
+    
     Alert.alert(
       "Confirmar eliminación",
       "¿Estás seguro que deseas eliminar esta lista de compras?",
@@ -23,9 +28,22 @@ export default function ShoppingLists() {
         },
         { 
           text: "Eliminar", 
-          onPress: () => {
-            removeShoppingList(id);
-            setRefresh(prev => prev + 1);
+          onPress: async () => {
+            try {
+              await removeShoppingList(id);
+              setRefresh(prev => prev + 1);
+              
+              Alert.alert(
+                "Lista eliminada",
+                "La lista de compras ha sido eliminada correctamente."
+              );
+            } catch (error) {
+              console.error("Error al eliminar lista:", error);
+              Alert.alert(
+                "Error",
+                "Ocurrió un error al intentar eliminar la lista."
+              );
+            }
           },
           style: "destructive"
         }
@@ -33,18 +51,18 @@ export default function ShoppingLists() {
     );
   };
 
-  const navigateToListDetail = (list: ShoppingList) => {
+  const navigateToListDetail = (list) => {
     router.push({
       pathname: "/shopping-detail",
       params: { listId: list.id }
     });
   };
 
-  const getCompletedItemsCount = (list: ShoppingList) => {
+  const getCompletedItemsCount = (list) => {
     return list.items.filter(item => item.completed).length;
   };
 
-  const getTotalItemsCount = (list: ShoppingList) => {
+  const getTotalItemsCount = (list) => {
     return list.items.length;
   };
 
@@ -204,8 +222,12 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fab: {
     position: "absolute",

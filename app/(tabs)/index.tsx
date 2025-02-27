@@ -16,12 +16,15 @@ const eventIcons = {
   salud: HeartPulse,
   comida: Utensils,
   ejercicio: Dumbbell,
-  // Puedes añadir más tipos según necesites
-}
+};
 
 export default function FamilyCalendar() {
-  // Obtener toda la instancia del store
-  const store = useFamilyStore();
+  // Obtener directamente las funciones y datos del store
+  const { 
+    members, 
+    events, 
+    removeEvent 
+  } = useFamilyStore();
   
   const [selected, setSelected] = useState("")
   const [modalVisible, setModalVisible] = useState(false)
@@ -31,10 +34,10 @@ export default function FamilyCalendar() {
   const [refresh, setRefresh] = useState(0)
   
   useEffect(() => {
-    console.log("Eventos actuales:", store.events.length);
-  }, [store.events, refresh])
+    console.log("Eventos actuales:", events.length);
+  }, [events, refresh])
 
-  const markedDates = store.events.reduce((acc, event) => {
+  const markedDates = events.reduce((acc, event) => {
     acc[event.date] = {
       marked: true,
       dotColor: event.color || THEME_COLORS.primary,
@@ -48,19 +51,15 @@ export default function FamilyCalendar() {
     router.push(`/personal?memberId=${memberId}`);
   }
 
-  // Función directa para eliminar evento
-  const debugDeleteEvent = (eventId) => {
-    console.log('DEPURACIÓN: Llamando directamente a removeEvent con ID:', eventId);
-    store.removeEvent(eventId);
-    setRefresh(prev => prev + 1);
-  }
-
-  const handleDeleteEvent = (eventId) => {
-    console.log('Intentando eliminar evento con ID:', eventId);
+  const handleDeleteEvent = async (eventId) => {
+    if (!eventId) {
+      console.error('ID de evento no válido para eliminación');
+      return;
+    }
     
     Alert.alert(
       "Confirmar eliminación",
-      `¿Estás seguro que deseas eliminar este evento? (ID: ${eventId})`,
+      "¿Estás seguro que deseas eliminar este evento?",
       [
         {
           text: "Cancelar",
@@ -68,12 +67,12 @@ export default function FamilyCalendar() {
         },
         { 
           text: "Eliminar", 
-          onPress: () => {
+          onPress: async () => {
             try {
               console.log('Confirmado: eliminando evento con ID:', eventId);
               
-              // Llamar directamente a la función del store
-              store.removeEvent(eventId);
+              // Usar await ya que la función ahora es asíncrona debido a las notificaciones
+              await removeEvent(eventId);
               
               // Forzar actualización de la UI
               setRefresh(prev => prev + 1);
@@ -93,7 +92,7 @@ export default function FamilyCalendar() {
           style: "destructive"
         }
       ]
-    )
+    );
   }
 
   return (
@@ -104,12 +103,12 @@ export default function FamilyCalendar() {
 
       {/* Sección de fotos de miembros de la familia */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.familyAvatars}>
-        {store.members.length === 0 ? (
+        {members.length === 0 ? (
           <View style={styles.emptyAvatars}>
             <Text style={styles.emptyAvatarsText}>Agrega miembros en la pestaña Familia</Text>
           </View>
         ) : (
-          store.members.map((member) => (
+          members.map((member) => (
             <TouchableOpacity 
               key={member.id} 
               style={styles.avatarContainer}
@@ -144,17 +143,17 @@ export default function FamilyCalendar() {
       <ScrollView style={styles.eventList}>
         {!selected ? (
           <Text style={styles.selectDateText}>Selecciona una fecha para ver los eventos</Text>
-        ) : store.events.filter(event => event.date === selected).length === 0 ? (
+        ) : events.filter(event => event.date === selected).length === 0 ? (
           <Text style={styles.noEventsText}>No hay eventos para esta fecha</Text>
         ) : (
-          store.events
+          events
             .filter(event => event.date === selected)
             .map(event => {
               // Determinar qué icono mostrar basado en el tipo de evento
               const IconComponent = event.type && eventIcons[event.type] ? eventIcons[event.type] : Briefcase;
               
               // Encontrar el miembro al que pertenece este evento
-              const member = store.members.find(m => m.id === event.memberId);
+              const member = members.find(m => m.id === event.memberId);
               
               return (
                 <View key={event.id} style={[styles.eventCard, { backgroundColor: event.color }]}>
@@ -173,7 +172,7 @@ export default function FamilyCalendar() {
                   </View>
                   <TouchableOpacity 
                     style={styles.deleteEventButton}
-                    onPress={() => debugDeleteEvent(event.id)}
+                    onPress={() => handleDeleteEvent(event.id)}
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
@@ -383,4 +382,4 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
   },
-})
+});

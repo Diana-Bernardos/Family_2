@@ -9,8 +9,14 @@ import AddFamilyMember from "../../components/AddFamilyMember"
 import AddEvent from "../../components/AddEvent"
 
 export default function FamilyMembers() {
-  // Obtener todo el store directamente
-  const store = useFamilyStore();
+  // Obtener directamente las funciones y datos del store
+  const { 
+    members, 
+    events, 
+    removeMember, 
+    removeEvent,
+    clearAllData
+  } = useFamilyStore();
   
   const [modalVisible, setModalVisible] = useState(false)
   const [expandedMember, setExpandedMember] = useState<string | null>(null)
@@ -24,12 +30,12 @@ export default function FamilyMembers() {
   const [refresh, setRefresh] = useState(0)
   
   useEffect(() => {
-    console.log("Miembros actuales:", store.members.length);
-    console.log("Eventos actuales:", store.events.length);
-  }, [store.members, store.events, refresh])
+    console.log("Miembros actuales:", members.length);
+    console.log("Eventos actuales:", events.length);
+  }, [members, events, refresh])
 
   const getMemberEvents = (memberId) => {
-    return store.events
+    return events
       .filter((event) => event.memberId === memberId)
       .reduce((acc, event) => {
         acc[event.date] = { marked: true, dotColor: event.color }
@@ -37,24 +43,15 @@ export default function FamilyMembers() {
       }, {})
   }
 
-  const logMemberIds = () => {
-    console.log("IDs de miembros:", store.members.map(m => m.id));
-  }
-
-  const debugDeleteMember = (id) => {
-    // Prueba directa de la función removeMember
-    console.log('DEPURACIÓN: Llamando directamente a removeMember con ID:', id);
-    store.removeMember(id);
-    setRefresh(prev => prev + 1);
-  }
-
   const handleDeleteMember = (id) => {
-    console.log('Intentando eliminar miembro con ID:', id);
-    logMemberIds();
+    if (!id) {
+      console.error('ID de miembro no válido para eliminación');
+      return;
+    }
     
     Alert.alert(
       "Confirmar eliminación",
-      `¿Estás seguro que deseas eliminar a este miembro de la familia? (ID: ${id})`,
+      "¿Estás seguro que deseas eliminar a este miembro de la familia?",
       [
         {
           text: "Cancelar",
@@ -66,8 +63,8 @@ export default function FamilyMembers() {
             try {
               console.log('Confirmado: eliminando miembro con ID:', id);
               
-              // Intento directo de eliminar
-              store.removeMember(id);
+              // Llamar directamente a la función del store
+              removeMember(id);
               
               // Si el miembro eliminado es el que está expandido, cerramos la vista
               if (expandedMember === id) {
@@ -77,7 +74,7 @@ export default function FamilyMembers() {
               // Forzar actualización de la UI
               setRefresh(prev => prev + 1);
               
-              console.log('Miembro eliminado, IDs restantes:', store.members.map(m => m.id));
+              console.log('Miembro eliminado, IDs restantes:', members.map(m => m.id));
               
               Alert.alert(
                 "Miembro eliminado",
@@ -94,15 +91,18 @@ export default function FamilyMembers() {
           style: "destructive"
         }
       ]
-    )
+    );
   }
 
-  const handleDeleteEvent = (eventId) => {
-    console.log('Intentando eliminar evento con ID:', eventId);
+  const handleDeleteEvent = async (eventId) => {
+    if (!eventId) {
+      console.error('ID de evento no válido para eliminación');
+      return;
+    }
     
     Alert.alert(
       "Confirmar eliminación",
-      `¿Estás seguro que deseas eliminar este evento? (ID: ${eventId})`,
+      "¿Estás seguro que deseas eliminar este evento?",
       [
         {
           text: "Cancelar",
@@ -110,12 +110,12 @@ export default function FamilyMembers() {
         },
         { 
           text: "Eliminar", 
-          onPress: () => {
+          onPress: async () => {
             try {
               console.log('Confirmado: eliminando evento con ID:', eventId);
               
-              // Llamar explícitamente a la función del store
-              store.removeEvent(eventId);
+              // Usar await ya que la función ahora es asíncrona debido a las notificaciones
+              await removeEvent(eventId);
               
               // Forzar actualización de la UI
               setRefresh(prev => prev + 1);
@@ -135,7 +135,7 @@ export default function FamilyMembers() {
           style: "destructive"
         }
       ]
-    )
+    );
   }
   
   const handleClearAllData = async () => {
@@ -154,7 +154,7 @@ export default function FamilyMembers() {
               setIsClearing(true);
               
               // Limpiar datos del store
-              await store.clearAllData();
+              await clearAllData();
               
               // Actualizar UI
               setExpandedMember(null);
@@ -175,7 +175,7 @@ export default function FamilyMembers() {
   }
 
   const renderEventList = (memberId) => {
-    const memberEvents = store.events.filter(event => event.memberId === memberId);
+    const memberEvents = events.filter(event => event.memberId === memberId);
     
     if (memberEvents.length === 0) {
       return <Text style={styles.noEventsText}>No hay eventos programados</Text>;
@@ -218,13 +218,13 @@ export default function FamilyMembers() {
       </View>
       
       <ScrollView contentContainerStyle={styles.memberList}>
-        {store.members.length === 0 ? (
+        {members.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No hay miembros en la familia</Text>
             <Text style={styles.emptySubtext}>Presiona el botón + para añadir un miembro</Text>
           </View>
         ) : (
-          store.members.map((member, index) => (
+          members.map((member, index) => (
             <View key={member.id} style={styles.memberSection}>
               <View style={[styles.memberCard, { backgroundColor: THEME_COLORS.gradient[index % 3] }]}>
                 <TouchableOpacity 
@@ -247,7 +247,7 @@ export default function FamilyMembers() {
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.deleteButton}
-                    onPress={() => debugDeleteMember(member.id)}
+                    onPress={() => handleDeleteMember(member.id)}
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
