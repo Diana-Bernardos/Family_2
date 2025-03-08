@@ -1,21 +1,35 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal } from "react-native"
 import { Calendar as CalendarComponent } from "react-native-calendars"
-import { Plus, Calendar } from "lucide-react-native"
-import { useFamilyStore } from "../../stores/familyStore"
-import AddEvent from "../../components/AddEvent"
-import { THEME_COLORS } from "../../constants/theme"
-import { useRouter } from "expo-router"
+import { Plus, Calendar, ArrowLeft } from "lucide-react-native"
+import { useFamilyStore } from "../../../stores/familyStore"
+import AddEvent from "../../../components/AddEvent"
+import { THEME_COLORS } from "../../../constants/theme"
+import { useLocalSearchParams, useRouter, Stack } from "expo-router"
 
-export default function FamilyCalendar() {
+export default function MemberCalendar() {
+  const { id } = useLocalSearchParams()
+  const memberId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : ""
+  const router = useRouter()
   const [selected, setSelected] = useState("")
   const [modalVisible, setModalVisible] = useState(false)
   const { events, members } = useFamilyStore()
-  const router = useRouter()
+  const [member, setMember] = useState<any>(null)
 
-  const markedDates = events.reduce((acc, event) => {
+  // Obtener el miembro específico y sus eventos
+  useEffect(() => {
+    if (memberId) {
+      const foundMember = members.find((m) => m.id === memberId)
+      setMember(foundMember)
+    }
+  }, [memberId, members])
+
+  // Filtrar eventos solo para este miembro
+  const memberEvents = events.filter((event) => event.memberId === memberId)
+
+  const markedDates = memberEvents.reduce((acc, event) => {
     acc[event.date] = {
       marked: true,
       dotColor: event.color || THEME_COLORS.primary,
@@ -23,19 +37,37 @@ export default function FamilyCalendar() {
     return acc
   }, {})
 
-  // Función para encontrar el miembro asociado a un evento
-  const findMemberForEvent = (memberId?: string) => {
-    if (!memberId) return null
-    return members.find((m) => m.id === memberId)
-  }
-
-  // Función para navegar al calendario personal
-  const navigateToMemberCalendar = (memberId: string) => {
-    router.push(`/member/${memberId}`)
+  if (!member) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Cargando...</Text>
+      </View>
+    )
   }
 
   return (
     <View style={styles.container}>
+      {/* Header con botón de regreso */}
+      <Stack.Screen
+        options={{
+          title: `Calendario de ${member.name}`,
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()}>
+              <ArrowLeft size={24} color={THEME_COLORS.primary} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+
+      {/* Perfil del miembro */}
+      <View style={styles.profileSection}>
+        <Image source={{ uri: member.avatar }} style={styles.avatar} />
+        <Text style={styles.memberName}>{member.name}</Text>
+        <Text style={styles.eventCount}>
+          {memberEvents.length} {memberEvents.length === 1 ? "evento" : "eventos"}
+        </Text>
+      </View>
+
       <CalendarComponent
         onDayPress={(day) => setSelected(day.dateString)}
         markedDates={{
@@ -61,52 +93,20 @@ export default function FamilyCalendar() {
         }}
       />
 
-      <View style={styles.familySection}>
-        <Text style={styles.familyTitle}>Familia</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.familyAvatars}>
-          {members.map((member) => (
-            <TouchableOpacity
-              key={member.id}
-              style={styles.familyMember}
-              onPress={() => navigateToMemberCalendar(member.id)}
-              activeOpacity={0.7}
-            >
-              <Image source={{ uri: member.avatar }} style={styles.familyAvatar} />
-              <Text style={styles.familyName}>{member.name}</Text>
-            </TouchableOpacity>
-          ))}
-          {members.length === 0 && <Text style={styles.noMembers}>No hay miembros en la familia</Text>}
-        </ScrollView>
-      </View>
-
       <Text style={styles.eventsTitle}>{selected ? `Eventos para ${selected}` : "Selecciona una fecha"}</Text>
 
       <ScrollView style={styles.eventList}>
-        {events
+        {memberEvents
           .filter((event) => event.date === selected)
-          .map((event) => {
-            const member = findMemberForEvent(event.memberId)
-            return (
-              <View key={event.id} style={[styles.eventCard, { borderLeftColor: event.color }]}>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventTime}>{event.time}</Text>
-
-                  {member && (
-                    <TouchableOpacity
-                      style={styles.memberInfo}
-                      onPress={() => navigateToMemberCalendar(member.id)}
-                      activeOpacity={0.7}
-                    >
-                      <Image source={{ uri: member.avatar }} style={styles.memberAvatar} />
-                      <Text style={styles.memberName}>{member.name}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+          .map((event) => (
+            <View key={event.id} style={[styles.eventCard, { borderLeftColor: event.color }]}>
+              <View style={styles.eventInfo}>
+                <Text style={styles.eventTitle}>{event.title}</Text>
+                <Text style={styles.eventTime}>{event.time}</Text>
               </View>
-            )
-          })}
-        {selected && events.filter((e) => e.date === selected).length === 0 && (
+            </View>
+          ))}
+        {selected && memberEvents.filter((e) => e.date === selected).length === 0 && (
           <View style={styles.emptyState}>
             <Calendar size={48} color="#d1d5db" />
             <Text style={styles.emptyStateText}>No hay eventos para esta fecha</Text>
@@ -126,7 +126,7 @@ export default function FamilyCalendar() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <AddEvent onClose={() => setModalVisible(false)} selectedDate={selected} />
+            <AddEvent onClose={() => setModalVisible(false)} selectedDate={selected} preselectedMemberId={memberId} />
           </View>
         </View>
       </Modal>
@@ -139,40 +139,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  familySection: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profileSection: {
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
-  familyTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: THEME_COLORS.primary,
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: 12,
   },
-  familyAvatars: {
-    flexDirection: "row",
-    paddingVertical: 8,
+  memberName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1f2937",
+    marginBottom: 4,
   },
-  familyMember: {
-    alignItems: "center",
-    marginRight: 16,
-  },
-  familyAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 8,
-  },
-  familyName: {
+  eventCount: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#4b5563",
-  },
-  noMembers: {
-    fontSize: 14,
-    color: "#9ca3af",
-    alignSelf: "center",
+    color: "#6b7280",
   },
   eventsTitle: {
     fontSize: 18,
@@ -211,26 +203,6 @@ const styles = StyleSheet.create({
   eventTime: {
     fontSize: 14,
     color: "#6b7280",
-  },
-  memberInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 12,
-    backgroundColor: "#f3f4f6",
-    padding: 6,
-    borderRadius: 16,
-    alignSelf: "flex-start",
-  },
-  memberAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  memberName: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#4b5563",
   },
   emptyState: {
     alignItems: "center",

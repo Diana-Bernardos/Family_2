@@ -2,37 +2,39 @@
 
 import { useState } from "react"
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from "react-native"
-import { Clock, Tag, X } from "lucide-react-native"
+import { Clock, MapPin, BookOpen, X } from "lucide-react-native"
 import { useFamilyStore } from "../stores/familyStore"
 import { THEME_COLORS } from "../constants/theme"
 
 const COLORS = ["#FFE4E1", "#D0F0C0", "#B0E0E6", "#FFD700", "#FFA07A", "#87CEFA"]
 
-export default function AddEvent({
+export default function AddSchoolActivity({
   onClose,
   selectedDate,
-  preselectedMemberId,
 }: {
   onClose: () => void
   selectedDate: string
-  preselectedMemberId?: string
 }) {
   const [title, setTitle] = useState("")
   const [time, setTime] = useState("")
+  const [location, setLocation] = useState("")
+  const [description, setDescription] = useState("")
   const [selectedColor, setSelectedColor] = useState(COLORS[0])
-  const [memberId, setMemberId] = useState<string | undefined>(preselectedMemberId)
+  const [studentId, setStudentId] = useState<string | undefined>(undefined)
 
-  const { addEvent, members } = useFamilyStore()
+  const { addSchoolActivity, members } = useFamilyStore()
 
   const handleSubmit = () => {
     if (title.trim()) {
-      addEvent({
+      addSchoolActivity({
         id: Date.now().toString(),
         title: title.trim(),
         date: selectedDate,
         time: time.trim(),
+        location: location.trim(),
+        description: description.trim(),
+        studentId,
         color: selectedColor,
-        memberId,
       })
       onClose()
     }
@@ -44,14 +46,14 @@ export default function AddEvent({
         <X size={24} color="#6b7280" />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Nuevo Evento</Text>
+      <Text style={styles.title}>Nueva Actividad Escolar</Text>
       <Text style={styles.subtitle}>Fecha: {selectedDate}</Text>
 
       <View style={styles.inputContainer}>
-        <Tag size={20} color={THEME_COLORS.primary} />
+        <BookOpen size={20} color={THEME_COLORS.primary} />
         <TextInput
           style={styles.input}
-          placeholder="Título del evento"
+          placeholder="Título de la actividad"
           value={title}
           onChangeText={setTitle}
           placeholderTextColor="#9ca3af"
@@ -69,17 +71,39 @@ export default function AddEvent({
         />
       </View>
 
-      {members.length > 0 && !preselectedMemberId && (
-        <View style={styles.memberSection}>
-          <Text style={styles.sectionTitle}>Asignar a un miembro (opcional)</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberList}>
+      <View style={styles.inputContainer}>
+        <MapPin size={20} color={THEME_COLORS.primary} />
+        <TextInput
+          style={styles.input}
+          placeholder="Ubicación (opcional)"
+          value={location}
+          onChangeText={setLocation}
+          placeholderTextColor="#9ca3af"
+        />
+      </View>
+
+      <Text style={styles.sectionTitle}>Descripción (opcional)</Text>
+      <TextInput
+        style={styles.descriptionInput}
+        placeholder="Añade detalles sobre la actividad..."
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={4}
+        placeholderTextColor="#9ca3af"
+      />
+
+      {members.length > 0 && (
+        <View style={styles.studentSection}>
+          <Text style={styles.sectionTitle}>Asignar a un estudiante (opcional)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studentList}>
             {members.map((member) => (
               <TouchableOpacity
                 key={member.id}
-                style={[styles.memberItem, memberId === member.id && styles.selectedMember]}
-                onPress={() => setMemberId(memberId === member.id ? undefined : member.id)}
+                style={[styles.studentItem, studentId === member.id && styles.selectedStudent]}
+                onPress={() => setStudentId(studentId === member.id ? undefined : member.id)}
               >
-                <Text style={[styles.memberName, memberId === member.id && styles.selectedMemberText]}>
+                <Text style={[styles.studentName, studentId === member.id && styles.selectedStudentText]}>
                   {member.name}
                 </Text>
               </TouchableOpacity>
@@ -88,15 +112,8 @@ export default function AddEvent({
         </View>
       )}
 
-      {preselectedMemberId && (
-        <View style={styles.preselectedMemberSection}>
-          <Text style={styles.sectionTitle}>Evento asignado a:</Text>
-          <Text style={styles.preselectedMemberName}>{members.find((m) => m.id === preselectedMemberId)?.name}</Text>
-        </View>
-      )}
-
       <View style={styles.colorSection}>
-        <Text style={styles.sectionTitle}>Color del evento</Text>
+        <Text style={styles.sectionTitle}>Color de la actividad</Text>
         <View style={styles.colorPicker}>
           {COLORS.map((color) => (
             <TouchableOpacity
@@ -113,7 +130,7 @@ export default function AddEvent({
         onPress={handleSubmit}
         disabled={!title.trim()}
       >
-        <Text style={styles.buttonText}>Guardar Evento</Text>
+        <Text style={styles.buttonText}>Guardar Actividad</Text>
       </TouchableOpacity>
     </ScrollView>
   )
@@ -160,44 +177,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1f2937",
   },
-  memberSection: {
-    marginBottom: 16,
-  },
-  preselectedMemberSection: {
-    marginBottom: 16,
-    backgroundColor: "#f3f4f6",
-    padding: 12,
-    borderRadius: 8,
-  },
-  preselectedMemberName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: THEME_COLORS.primary,
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#4b5563",
     marginBottom: 8,
   },
-  memberList: {
+  descriptionInput: {
+    backgroundColor: "#f3f4f6",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: "#1f2937",
+    minHeight: 100,
+    textAlignVertical: "top",
+    marginBottom: 16,
+  },
+  studentSection: {
+    marginBottom: 16,
+  },
+  studentList: {
     paddingVertical: 8,
   },
-  memberItem: {
+  studentItem: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: "#f3f4f6",
     borderRadius: 20,
     marginRight: 8,
   },
-  selectedMember: {
+  selectedStudent: {
     backgroundColor: THEME_COLORS.primary,
   },
-  memberName: {
+  studentName: {
     color: "#4b5563",
     fontWeight: "500",
   },
-  selectedMemberText: {
+  selectedStudentText: {
     color: "#ffffff",
   },
   colorSection: {

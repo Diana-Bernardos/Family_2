@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native";
 import { X } from "lucide-react-native";
-import { useFamilyStore, THEME_COLORS, FONTS } from "../stores/familyStore";
+import { useFamilyStore } from "../stores/familyStore";
+import { THEME_COLORS, FONTS } from "../constants/theme"; // Importación corregida
 
 export default function AddShoppingItem({ 
   onClose,

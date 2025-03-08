@@ -1,168 +1,146 @@
-import { Tabs } from "expo-router"
-import { useEffect, useState } from 'react';
-import { registerForPushNotificationsAsync, setupNotificationHandlers } from '../utils/notificationService';
-import { Calendar, Users, MessageSquare, ShoppingBag, BookOpen } from "lucide-react-native"
-import { View, Alert, Platform } from "react-native"
+"use client"
+
+import { useEffect, useState } from "react"
+import { Stack } from "expo-router"
+import { StatusBar } from "expo-status-bar"
+import { View, ActivityIndicator, Text, Image, StyleSheet } from "react-native"
+import { useFamilyStore } from "../stores/familyStore"
 import { LinearGradient } from "expo-linear-gradient"
-import { useFamilyStore, THEME_COLORS } from "../stores/familyStore"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { router } from "expo-router";
-import * as Notifications from 'expo-notifications';
+import { THEME_COLORS } from "../constants/theme"
 
-export default function TabLayout() {
-  const [notificationPermission, setNotificationPermission] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const familyStore = useFamilyStore();
+declare global {
+  interface Window {
+    frameworkReady?: () => void
+  }
+}
 
-  // Inicialización y verificación del almacenamiento al cargar la aplicación
+export default function RootLayout() {
+  const [isLoading, setIsLoading] = useState(true)
+  const loadData = useFamilyStore((state) => state.loadData)
+  const addNotification = useFamilyStore((state) => state.addNotification)
+  const events = useFamilyStore((state) => state.events)
+  const schoolActivities = useFamilyStore((state) => state.schoolActivities)
+
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        // Verificar si hay datos en AsyncStorage
-        const storedData = await AsyncStorage.getItem("family-store");
-        console.log("Datos almacenados:", storedData ? "Sí hay datos" : "No hay datos");
-        
-        // Registrar para notificaciones push y guardar permisos
-        const token = await registerForPushNotificationsAsync();
-        setNotificationPermission(!!token);
-        
-        // Si no hay permisos, mostrar alerta informativa
-        if (!token && Platform.OS !== 'web') {
-          Alert.alert(
-            "Notificaciones desactivadas",
-            "Las notificaciones están desactivadas. Para recibir recordatorios de eventos, por favor activa los permisos de notificaciones en la configuración.",
-            [{ text: "OK" }]
-          );
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error("Error al inicializar la aplicación:", error);
-        setLoading(false);
-      }
-    };
-    
-    initializeApp();
-  }, []);
+    window.frameworkReady?.()
 
-  // Configurar manejadores de notificaciones
+    // Cargar datos y simular un tiempo de carga mínimo
+    const loadAppData = async () => {
+      await loadData()
+      // Simular un tiempo de carga mínimo para mostrar la pantalla de carga
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 1500)
+    }
+
+    loadAppData()
+  }, [loadData])
+
+  // Efecto para verificar eventos próximos y crear recordatorios
   useEffect(() => {
-    // Función para manejar cuando se recibe una notificación con la app en primer plano
-    const handleNotificationReceived = (notification) => {
-      console.log("Notificación recibida en primer plano:", notification);
-    };
+    if (isLoading) return
 
-    // Función para manejar cuando el usuario interactúa con una notificación
-    const handleNotificationResponse = (response) => {
-      const data = response.notification.request.content.data;
-      console.log("Usuario interactuó con notificación:", data);
-      
-      // Navegar según el tipo de notificación
-      if (data.type === 'event' && data.eventId) {
-        // Buscar el evento y navegar al calendario correspondiente
-        const event = familyStore.events.find(e => e.id === data.eventId);
-        if (event) {
-          if (event.memberId) {
-            // Evento de un miembro específico
-            router.navigate({
-              pathname: "/personal",
-              params: { memberId: event.memberId }
-            });
-          } else {
-            // Evento general
-            router.navigate("/");
-          }
-        }
-      } else if (data.type === 'school' && data.eventId) {
-        // Navegar a la sección de escuela
-        router.navigate("/school");
-      } else if (data.type === 'shopping' && data.listId) {
-        // Navegar a la lista de compras específica
-        router.navigate({
-          pathname: "/shopping-detail",
-          params: { listId: data.listId }
-        });
+    const checkUpcomingEvents = () => {
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const tomorrowDateStr = tomorrow.toISOString().split("T")[0]
+
+      // Verificar eventos familiares para mañana
+      const tomorrowEvents = events.filter((event) => event.date === tomorrowDateStr)
+
+      if (tomorrowEvents.length > 0) {
+        addNotification({
+          id: `reminder-events-${Date.now()}`,
+          title: "Recordatorio de eventos",
+          message: `Tienes ${tomorrowEvents.length} evento(s) programado(s) para mañana`,
+          date: today.toISOString().split("T")[0],
+          time: today.toTimeString().split(" ")[0].substring(0, 5),
+          read: false,
+          type: "reminder",
+        })
       }
-    };
 
-    // Configurar manejadores y obtener función de limpieza
-    const unsubscribe = setupNotificationHandlers(
-      handleNotificationReceived,
-      handleNotificationResponse
-    );
+      // Verificar actividades escolares para mañana
+      const tomorrowActivities = schoolActivities.filter((activity) => activity.date === tomorrowDateStr)
 
-    // Limpiar suscripciones al desmontar
-    return () => {
-      unsubscribe();
-    };
-  }, [familyStore.events]);
+      if (tomorrowActivities.length > 0) {
+        addNotification({
+          id: `reminder-school-${Date.now()}`,
+          title: "Recordatorio escolar",
+          message: `Hay ${tomorrowActivities.length} actividad(es) escolar(es) programada(s) para mañana`,
+          date: today.toISOString().split("T")[0],
+          time: today.toTimeString().split(" ")[0].substring(0, 5),
+          read: false,
+          type: "reminder",
+        })
+      }
+    }
 
-  // Mostrar algún indicador de carga si es necesario
-  if (loading) {
+    // Verificar al inicio
+    checkUpcomingEvents()
+
+    // Configurar verificación periódica (cada 12 horas)
+    const intervalId = setInterval(checkUpcomingEvents, 12 * 60 * 60 * 1000)
+
+    return () => clearInterval(intervalId)
+  }, [isLoading, events, schoolActivities, addNotification])
+
+  if (isLoading) {
     return (
-      <View style={{ flex: 1 }}>
-        <LinearGradient
-          colors={THEME_COLORS.gradient}
-          style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
-        />
-      </View>
-    );
+      <LinearGradient colors={[THEME_COLORS.primary, "#818cf8", "#a5b4fc"]} style={styles.loadingContainer}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={{
+              uri: "https://images.unsplash.com/photo-1631979822193-25db6e6d9ef3?auto=format&fit=crop&w=200&h=200",
+            }}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.appName}>Familia App</Text>
+        </View>
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </LinearGradient>
+    )
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <LinearGradient
-        colors={THEME_COLORS.gradient}
-        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
-      />
-      <Tabs
-        screenOptions={{
-          tabBarStyle: {
-            backgroundColor: "rgba(255, 255, 255, 0.8)",
-            borderTopWidth: 1,
-            borderTopColor: "#e5e5e5",
-          },
-          tabBarActiveTintColor: THEME_COLORS.primary,
-          tabBarInactiveTintColor: "#94a3b8",
-          headerShown: false,
-        }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Calendario",
-            tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
-          }}
-        />
-        <Tabs.Screen
-          name="family"
-          options={{
-            title: "Familia",
-            tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
-          }}
-        />
-        <Tabs.Screen
-          name="shopping"
-          options={{
-            title: "Compras",
-            tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} />,
-          }}
-        />
-        <Tabs.Screen
-          name="school"
-          options={{
-            title: "Escuela",
-            tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} />,
-          }}
-        />
-        <Tabs.Screen
-          name="assistant"
-          options={{
-            title: "Asistente",
-            tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
-          }}
-        />
-      </Tabs>
-    </View>
+    <LinearGradient colors={["#f9fafb", "#f3f4f6", "#e5e7eb"]} style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <StatusBar style="auto" />
+    </LinearGradient>
   )
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 16,
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: "#ffffff",
+  },
+})
+

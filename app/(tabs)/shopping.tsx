@@ -1,122 +1,135 @@
 "use client"
 
 import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert } from "react-native"
-import { Plus, ShoppingBag, Trash2, Check, ChevronRight } from "lucide-react-native"
-import { useFamilyStore, THEME_COLORS, FONTS, ShoppingList } from "../../stores/familyStore"
-import AddShoppingList from "../../components/AddShoppingList"
-import { router } from "expo-router"
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Modal,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native"
+import { Plus, Trash2, ShoppingCart, Check, X } from "lucide-react-native"
+import { useFamilyStore } from "../../stores/familyStore"
+import { THEME_COLORS } from "../../constants/theme"
 
-export default function ShoppingLists() {
-  const { shoppingLists, removeShoppingList } = useFamilyStore();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [refresh, setRefresh] = useState(0);
+export default function ShoppingList() {
+  const { shoppingList, addShoppingItem, removeShoppingItem, toggleShoppingItem } = useFamilyStore()
+  const [modalVisible, setModalVisible] = useState(false)
+  const [itemName, setItemName] = useState("")
+  const [itemQuantity, setItemQuantity] = useState("")
+  const [itemCategory, setItemCategory] = useState("")
+  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all")
 
-  const handleDeleteList = async (id) => {
-    if (!id) {
-      console.error('ID de lista no válido para eliminación');
-      return;
+  const handleAddItem = () => {
+    if (itemName.trim()) {
+      addShoppingItem({
+        id: Date.now().toString(),
+        name: itemName.trim(),
+        quantity: itemQuantity.trim(),
+        category: itemCategory.trim(),
+        completed: false,
+      })
+      setItemName("")
+      setItemQuantity("")
+      setItemCategory("")
+      setModalVisible(false)
     }
-    
-    Alert.alert(
-      "Confirmar eliminación",
-      "¿Estás seguro que deseas eliminar esta lista de compras?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        { 
-          text: "Eliminar", 
-          onPress: async () => {
-            try {
-              await removeShoppingList(id);
-              setRefresh(prev => prev + 1);
-              
-              Alert.alert(
-                "Lista eliminada",
-                "La lista de compras ha sido eliminada correctamente."
-              );
-            } catch (error) {
-              console.error("Error al eliminar lista:", error);
-              Alert.alert(
-                "Error",
-                "Ocurrió un error al intentar eliminar la lista."
-              );
-            }
-          },
-          style: "destructive"
-        }
-      ]
-    );
-  };
+  }
 
-  const navigateToListDetail = (list) => {
-    router.push({
-      pathname: "/shopping-detail",
-      params: { listId: list.id }
-    });
-  };
+  const handleDeleteItem = (id: string) => {
+    Alert.alert("Eliminar artículo", "¿Estás seguro de que quieres eliminar este artículo?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Eliminar",
+        style: "destructive",
+        onPress: () => removeShoppingItem(id),
+      },
+    ])
+  }
 
-  const getCompletedItemsCount = (list) => {
-    return list.items.filter(item => item.completed).length;
-  };
+  const filteredItems = shoppingList.filter((item) => {
+    if (filter === "all") return true
+    if (filter === "pending") return !item.completed
+    if (filter === "completed") return item.completed
+    return true
+  })
 
-  const getTotalItemsCount = (list) => {
-    return list.items.length;
-  };
+  // Agrupar por categoría
+  const groupedItems: Record<string, typeof shoppingList> = {}
+  filteredItems.forEach((item) => {
+    const category = item.category || "Sin categoría"
+    if (!groupedItems[category]) {
+      groupedItems[category] = []
+    }
+    groupedItems[category].push(item)
+  })
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Listas de Compras</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={100}
+    >
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === "all" && styles.activeFilter]}
+          onPress={() => setFilter("all")}
+        >
+          <Text style={[styles.filterText, filter === "all" && styles.activeFilterText]}>Todos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === "pending" && styles.activeFilter]}
+          onPress={() => setFilter("pending")}
+        >
+          <Text style={[styles.filterText, filter === "pending" && styles.activeFilterText]}>Pendientes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === "completed" && styles.activeFilter]}
+          onPress={() => setFilter("completed")}
+        >
+          <Text style={[styles.filterText, filter === "completed" && styles.activeFilterText]}>Completados</Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.listContainer}>
-        {shoppingLists.length === 0 ? (
-          <View style={styles.emptyState}>
-            <ShoppingBag size={48} color={THEME_COLORS.primary} />
-            <Text style={styles.emptyText}>No hay listas de compras</Text>
-            <Text style={styles.emptySubtext}>Crea una lista para tus compras familiares</Text>
-          </View>
-        ) : (
-          shoppingLists.map((list) => (
-            <View key={list.id} style={styles.listCard}>
-              <TouchableOpacity 
-                style={styles.listInfo}
-                onPress={() => navigateToListDetail(list)}
-              >
-                <View style={styles.listHeader}>
-                  <Text style={styles.listName}>{list.name}</Text>
-                  {list.forDate && (
-                    <Text style={styles.listDate}>Para: {list.forDate}</Text>
-                  )}
+      <ScrollView style={styles.itemList}>
+        {Object.keys(groupedItems).length > 0 ? (
+          Object.entries(groupedItems).map(([category, items]) => (
+            <View key={category} style={styles.categorySection}>
+              <Text style={styles.categoryTitle}>{category}</Text>
+              {items.map((item) => (
+                <View key={item.id} style={styles.itemCard}>
+                  <TouchableOpacity
+                    style={[styles.checkbox, item.completed && styles.checkboxChecked]}
+                    onPress={() => toggleShoppingItem(item.id)}
+                  >
+                    {item.completed && <Check size={16} color="#fff" />}
+                  </TouchableOpacity>
+                  <View style={styles.itemInfo}>
+                    <Text style={[styles.itemName, item.completed && styles.itemCompleted]}>{item.name}</Text>
+                    {item.quantity && <Text style={styles.itemQuantity}>Cantidad: {item.quantity}</Text>}
+                  </View>
+                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteItem(item.id)}>
+                    <Trash2 size={18} color="#ef4444" />
+                  </TouchableOpacity>
                 </View>
-                
-                <View style={styles.listStats}>
-                  <Text style={styles.listItemCount}>
-                    {getCompletedItemsCount(list)}/{getTotalItemsCount(list)} productos
-                  </Text>
-                  <ChevronRight size={16} color={THEME_COLORS.text} />
-                </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.deleteButton}
-                onPress={() => handleDeleteList(list.id)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Trash2 size={18} color="#ef4444" />
-              </TouchableOpacity>
+              ))}
             </View>
           ))
+        ) : (
+          <View style={styles.emptyState}>
+            <ShoppingCart size={48} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>Tu lista de la compra está vacía</Text>
+            <Text style={styles.emptyStateSubtext}>Añade artículos usando el botón +</Text>
+          </View>
         )}
       </ScrollView>
 
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => setModalVisible(true)}
-      >
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
         <Plus color="white" size={24} />
       </TouchableOpacity>
 
@@ -128,106 +141,161 @@ export default function ShoppingLists() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <AddShoppingList 
-              onClose={() => {
-                setModalVisible(false);
-                setRefresh(prev => prev + 1);
-              }}
-            />
+            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+              <X size={24} color="#6b7280" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>Añadir artículo</Text>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Nombre del artículo *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: Leche, Pan, Huevos..."
+                value={itemName}
+                onChangeText={setItemName}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Cantidad (opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: 1L, 500g, 2 unidades..."
+                value={itemQuantity}
+                onChangeText={setItemQuantity}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Categoría (opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: Lácteos, Frutas, Limpieza..."
+                value={itemCategory}
+                onChangeText={setItemCategory}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addButton, !itemName.trim() && styles.addButtonDisabled]}
+              onPress={handleAddItem}
+              disabled={!itemName.trim()}
+            >
+              <Text style={styles.addButtonText}>Añadir a la lista</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </View>
-  );
+    </KeyboardAvoidingView>
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: "#fff",
   },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 10,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: THEME_COLORS.primary,
-    fontFamily: FONTS.bold,
-  },
-  listContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 100,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: THEME_COLORS.text,
-    marginTop: 16,
-    marginBottom: 8,
-    fontFamily: FONTS.bold,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    fontFamily: FONTS.regular,
-  },
-  listCard: {
+  filterContainer: {
     flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: 12,
+    backgroundColor: "#f9fafb",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
-  listInfo: {
+  filterButton: {
     flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 8,
   },
-  listHeader: {
-    marginBottom: 8,
+  activeFilter: {
+    backgroundColor: "#e0e7ff",
   },
-  listName: {
-    fontSize: 16,
+  filterText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6b7280",
+  },
+  activeFilterText: {
+    color: THEME_COLORS.primary,
     fontWeight: "600",
-    color: THEME_COLORS.text,
-    fontFamily: FONTS.semiBold,
   },
-  listDate: {
-    fontSize: 12,
-    color: "#666",
-    fontFamily: FONTS.regular,
+  itemList: {
+    flex: 1,
+    padding: 16,
   },
-  listStats: {
+  categorySection: {
+    marginBottom: 16,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#4b5563",
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  itemCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    padding: 16,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  listItemCount: {
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: THEME_COLORS.primary,
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: THEME_COLORS.primary,
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#1f2937",
+  },
+  itemCompleted: {
+    textDecorationLine: "line-through",
+    color: "#9ca3af",
+  },
+  itemQuantity: {
     fontSize: 14,
-    color: THEME_COLORS.text,
-    fontFamily: FONTS.regular,
+    color: "#6b7280",
+    marginTop: 4,
   },
   deleteButton: {
     padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 20,
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#6b7280",
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#9ca3af",
+    marginTop: 8,
   },
   fab: {
     position: "absolute",
@@ -255,5 +323,51 @@ const styles = StyleSheet.create({
     width: "90%",
     backgroundColor: "#fff",
     borderRadius: 12,
+    padding: 20,
+    maxHeight: "80%",
   },
-});
+  closeButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1f2937",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#4b5563",
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: "#f3f4f6",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  addButton: {
+    backgroundColor: THEME_COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addButtonDisabled: {
+    backgroundColor: "#c7d2fe",
+  },
+  addButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+})
+

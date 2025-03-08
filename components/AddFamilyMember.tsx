@@ -1,125 +1,117 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from "react-native"
-import * as ImagePicker from "expo-image-picker"
-import { useFamilyStore, THEME_COLORS } from "../stores/familyStore"
-import { Camera, X } from "lucide-react-native"
+import { useState } from "react"
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView } from "react-native"
+import { X, User, Check } from "lucide-react-native"
+import { useFamilyStore } from "../stores/familyStore"
+import { THEME_COLORS } from "../constants/theme"
 
-export default function AddFamilyMember({ 
-  onClose, 
-  memberToEdit = null 
-}: { 
-  onClose: () => void,
-  memberToEdit?: any
-}) {
+// Avatares predefinidos
+const AVATARS = [
+  "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=100&h=100",
+  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&h=100",
+  "https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=100&h=100",
+  "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&h=100",
+  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&h=100",
+  "https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=100&h=100",
+]
+
+export default function AddFamilyMember({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("")
-  const [avatar, setAvatar] = useState("")
-  const { addMember, updateMember } = useFamilyStore()
-  
-  // Si se está editando un miembro, inicializar con sus datos
-  useEffect(() => {
-    if (memberToEdit) {
-      setName(memberToEdit.name)
-      setAvatar(memberToEdit.avatar)
-    }
-  }, [memberToEdit])
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0])
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    })
-
-    if (!result.canceled) {
-      setAvatar(result.assets[0].uri)
-    }
-  }
+  const { addMember } = useFamilyStore()
 
   const handleSubmit = () => {
     if (name.trim()) {
-      if (memberToEdit) {
-        // Editar miembro existente
-        updateMember(memberToEdit.id, {
-          name: name.trim(),
-          avatar: avatar || memberToEdit.avatar,
-        })
-        console.log(`Miembro actualizado: ${name}`)
-      } else {
-        // Añadir nuevo miembro
-        addMember({
-          id: Date.now().toString(),
-          name: name.trim(),
-          avatar: avatar || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200",
-        })
-        console.log(`Nuevo miembro añadido: ${name}`)
-      }
+      addMember({
+        id: Date.now().toString(),
+        name: name.trim(),
+        avatar: selectedAvatar,
+      })
       onClose()
     }
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-        <X color={THEME_COLORS.primary} size={24} />
-      </TouchableOpacity>
-      <Text style={styles.title}>{memberToEdit ? "Editar Familiar" : "Añadir Familiar"}</Text>
-
-      <TouchableOpacity style={styles.avatarContainer} onPress={pickImage}>
-        {avatar ? (
-          <Image source={{ uri: avatar }} style={styles.avatar} />
-        ) : memberToEdit && memberToEdit.avatar ? (
-          <Image source={{ uri: memberToEdit.avatar }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Camera size={32} color={THEME_COLORS.primary} />
-          </View>
-        )}
+        <X size={24} color="#6b7280" />
       </TouchableOpacity>
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="Nombre del familiar" 
-        value={name} 
-        onChangeText={setName} 
-      />
+      <Text style={styles.title}>Añadir Miembro de Familia</Text>
+
+      <View style={styles.avatarContainer}>
+        <Image source={{ uri: selectedAvatar }} style={styles.avatar} />
+      </View>
+
+      <Text style={styles.sectionTitle}>Selecciona un avatar</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.avatarList}>
+        {AVATARS.map((avatar) => (
+          <TouchableOpacity
+            key={avatar}
+            style={[styles.avatarOption, selectedAvatar === avatar && styles.selectedAvatarOption]}
+            onPress={() => setSelectedAvatar(avatar)}
+          >
+            <Image source={{ uri: avatar }} style={styles.avatarOptionImage} />
+            {selectedAvatar === avatar && (
+              <View style={styles.selectedAvatarCheck}>
+                <Check size={16} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={styles.inputContainer}>
+        <User size={20} color={THEME_COLORS.primary} />
+        <TextInput
+          style={styles.input}
+          placeholder="Nombre del miembro"
+          value={name}
+          onChangeText={setName}
+          placeholderTextColor="#9ca3af"
+        />
+      </View>
 
       <TouchableOpacity
         style={[styles.button, !name.trim() && styles.buttonDisabled]}
         onPress={handleSubmit}
         disabled={!name.trim()}
       >
-        <Text style={styles.buttonText}>{memberToEdit ? "Actualizar" : "Guardar"}</Text>
+        <Text style={styles.buttonText}>Guardar</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "#fff",
     borderRadius: 12,
-    alignItems: "center",
+    maxHeight: "80%",
   },
   closeButton: {
     position: "absolute",
-    top: 10,
-    right: 10,
+    top: 12,
+    right: 12,
     zIndex: 10,
   },
   title: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     marginBottom: 20,
     color: THEME_COLORS.primary,
+    textAlign: "center",
+    marginTop: 10,
   },
   avatarContainer: {
     width: 100,
     height: 100,
     borderRadius: 50,
+    backgroundColor: "#f3f4f6",
+    alignSelf: "center",
     marginBottom: 20,
     overflow: "hidden",
   },
@@ -127,31 +119,66 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  avatarPlaceholder: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4b5563",
+    marginBottom: 12,
+  },
+  avatarList: {
+    paddingVertical: 8,
+    marginBottom: 20,
+  },
+  avatarOption: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 12,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  selectedAvatarOption: {
+    borderColor: THEME_COLORS.primary,
+  },
+  avatarOptionImage: {
     width: "100%",
     height: "100%",
-    backgroundColor: THEME_COLORS.blue,
+  },
+  selectedAvatarCheck: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: THEME_COLORS.primary,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
     justifyContent: "center",
     alignItems: "center",
   },
-  input: {
-    width: "100%",
-    padding: 12,
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f3f4f6",
     borderRadius: 8,
-    backgroundColor: THEME_COLORS.blue,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 20,
+  },
+  input: {
+    flex: 1,
+    marginLeft: 12,
     fontSize: 16,
+    color: "#1f2937",
   },
   button: {
     backgroundColor: THEME_COLORS.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 14,
     borderRadius: 8,
-    width: "100%",
     alignItems: "center",
+    marginBottom: 20,
   },
   buttonDisabled: {
-    backgroundColor: THEME_COLORS.blue,
+    backgroundColor: "#c7d2fe",
   },
   buttonText: {
     color: "#fff",
@@ -159,3 +186,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 })
+

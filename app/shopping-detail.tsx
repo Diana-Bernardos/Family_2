@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert } from "react-native"
 import { Plus, ArrowLeft, Check, ShoppingBag, Trash2 } from "lucide-react-native"
-import { useFamilyStore, THEME_COLORS, FONTS, ShoppingList, ShoppingItem } from "../stores/familyStore"
+import { useFamilyStore } from "../stores/familyStore"
+import { THEME_COLORS, FONTS } from "../constants/theme" 
+import type { ShoppingList, ShoppingItem } from "../stores/familyStore"
 import { useLocalSearchParams, router } from "expo-router"
 import AddShoppingItem from "../components/AddShoppingItem"
 
