@@ -1,16 +1,39 @@
-import { Tabs } from "expo-router"
-import { Calendar, Users, MessageSquare, ShoppingCart, BookOpen, Bell } from "lucide-react-native"
-import { Text, View } from "react-native"
-import { useFamilyStore } from "../../stores/familyStore"
-import { THEME_COLORS } from "../../constants/theme"
+// app/(tabs)/_layout.tsx
+import React from "react";
+import { Tabs } from "expo-router";
+import { Calendar, Users, MessageSquare, ShoppingCart, BookOpen, Bell } from "lucide-react-native";
+import { Text, View, StyleSheet } from "react-native";
+import { useFamilyStore } from "../../stores/familyStore";
+import { THEME_COLORS } from "../../constants/theme";
+import SimpleShareButton from "../../components/SimpleShareButton";
 
 export default function TabLayout() {
-  const { notifications } = useFamilyStore()
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const { notifications } = useFamilyStore();
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Obtener los títulos de las pantallas para el botón de compartir
+  const getShareTitleForScreen = (routeName: string) => {
+    switch (routeName) {
+      case "index":
+        return "Calendario Familiar";
+      case "family":
+        return "Miembros de la Familia";
+      case "school":
+        return "Calendario Escolar";
+      case "shopping":
+        return "Lista de la Compra";
+      case "notifications":
+        return "Notificaciones";
+      case "assistant":
+        return "Asistente Familiar";
+      default:
+        return "Familia App";
+    }
+  };
 
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         tabBarStyle: {
           backgroundColor: "#fff",
           borderTopWidth: 1,
@@ -35,7 +58,15 @@ export default function TabLayout() {
           color: "#1f2937",
         },
         headerTitleAlign: "center",
-      }}
+        // Añadir botón de compartir en el header
+        headerRight: () => (
+          <SimpleShareButton
+            title={getShareTitleForScreen(route.name)}
+            size={20}
+            style={styles.headerShareButton}
+          />
+        ),
+      })}
     >
       <Tabs.Screen
         name="index"
@@ -109,6 +140,11 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-  )
+  );
 }
 
+const styles = StyleSheet.create({
+  headerShareButton: {
+    marginRight: 16,
+  }
+});

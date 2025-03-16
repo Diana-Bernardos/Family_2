@@ -7,37 +7,52 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  ScrollView,
+  FlatList,
   Modal,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native"
-import { Plus, Trash2, ShoppingCart, Check, X } from "lucide-react-native"
 import { useFamilyStore } from "../../stores/familyStore"
+import { Check, Plus, Edit, Trash2 } from "lucide-react-native"
+import ShareButton from "../../components/SimpleShareButton"
 import { THEME_COLORS } from "../../constants/theme"
 
 export default function ShoppingList() {
-  const { shoppingList, addShoppingItem, removeShoppingItem, toggleShoppingItem } = useFamilyStore()
-  const [modalVisible, setModalVisible] = useState(false)
-  const [itemName, setItemName] = useState("")
-  const [itemQuantity, setItemQuantity] = useState("")
-  const [itemCategory, setItemCategory] = useState("")
-  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all")
+  const [newItem, setNewItem] = useState("")
+  const [editingItem, setEditingItem] = useState<{ id: string; name: string; quantity: string }>()
+  const [editModalVisible, setEditModalVisible] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editQuantity, setEditQuantity] = useState("")
+  const { shoppingList, addShoppingItem, toggleShoppingItem, updateShoppingItem, removeShoppingItem } = useFamilyStore()
 
   const handleAddItem = () => {
-    if (itemName.trim()) {
+    if (newItem.trim()) {
       addShoppingItem({
         id: Date.now().toString(),
-        name: itemName.trim(),
-        quantity: itemQuantity.trim(),
-        category: itemCategory.trim(),
+        name: newItem.trim(),
         completed: false,
+        quantity: "1",
+        category: "general",
       })
-      setItemName("")
-      setItemQuantity("")
-      setItemCategory("")
-      setModalVisible(false)
+      setNewItem("")
+    }
+  }
+
+  const handleEditItem = (item: { id: string; name: string; quantity?: string }) => {
+    setEditingItem(item)
+    setEditName(item.name)
+    setEditQuantity(item.quantity || "1")
+    setEditModalVisible(true)
+  }
+
+  const saveEditedItem = () => {
+    if (editingItem && editName.trim()) {
+      updateShoppingItem(editingItem.id, {
+        name: editName.trim(),
+        quantity: editQuantity.trim() || "1",
+      })
+      setEditModalVisible(false)
     }
   }
 
@@ -52,138 +67,123 @@ export default function ShoppingList() {
     ])
   }
 
-  const filteredItems = shoppingList.filter((item) => {
-    if (filter === "all") return true
-    if (filter === "pending") return !item.completed
-    if (filter === "completed") return item.completed
-    return true
-  })
-
-  // Agrupar por categoría
-  const groupedItems: Record<string, typeof shoppingList> = {}
-  filteredItems.forEach((item) => {
-    const category = item.category || "Sin categoría"
-    if (!groupedItems[category]) {
-      groupedItems[category] = []
-    }
-    groupedItems[category].push(item)
-  })
+  const renderItem = ({ item }) => (
+    <View style={styles.itemContainer}>
+      <TouchableOpacity style={styles.checkboxContainer} onPress={() => toggleShoppingItem(item.id)}>
+        <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
+          {item.completed && <Check size={16} color="#fff" />}
+        </View>
+      </TouchableOpacity>
+      <View style={styles.itemDetails}>
+        <Text style={[styles.itemText, item.completed && styles.itemTextChecked]}>{item.name}</Text>
+        {item.quantity && item.quantity !== "1" && (
+          <Text style={styles.quantityText}>{item.quantity} unidades</Text>
+        )}
+      </View>
+      <View style={styles.itemActions}>
+        {/* Botón de compartir implementado aquí */}
+        <ShareButton
+          contentId={item.id}
+          contentType="shopping"
+          contentTitle={item.name}
+          size={18}
+          style={styles.actionButton}
+        />
+        <TouchableOpacity style={styles.actionButton} onPress={() => handleEditItem(item)}>
+          <Edit size={18} color={THEME_COLORS.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteItem(item.id)}>
+          <Trash2 size={18} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={100}
     >
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === "all" && styles.activeFilter]}
-          onPress={() => setFilter("all")}
-        >
-          <Text style={[styles.filterText, filter === "all" && styles.activeFilterText]}>Todos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === "pending" && styles.activeFilter]}
-          onPress={() => setFilter("pending")}
-        >
-          <Text style={[styles.filterText, filter === "pending" && styles.activeFilterText]}>Pendientes</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === "completed" && styles.activeFilter]}
-          onPress={() => setFilter("completed")}
-        >
-          <Text style={[styles.filterText, filter === "completed" && styles.activeFilterText]}>Completados</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Lista de la Compra</Text>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Añadir nuevo artículo"
+          value={newItem}
+          onChangeText={setNewItem}
+          onSubmitEditing={handleAddItem}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
+          <Plus size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.itemList}>
-        {Object.keys(groupedItems).length > 0 ? (
-          Object.entries(groupedItems).map(([category, items]) => (
-            <View key={category} style={styles.categorySection}>
-              <Text style={styles.categoryTitle}>{category}</Text>
-              {items.map((item) => (
-                <View key={item.id} style={styles.itemCard}>
-                  <TouchableOpacity
-                    style={[styles.checkbox, item.completed && styles.checkboxChecked]}
-                    onPress={() => toggleShoppingItem(item.id)}
-                  >
-                    {item.completed && <Check size={16} color="#fff" />}
-                  </TouchableOpacity>
-                  <View style={styles.itemInfo}>
-                    <Text style={[styles.itemName, item.completed && styles.itemCompleted]}>{item.name}</Text>
-                    {item.quantity && <Text style={styles.itemQuantity}>Cantidad: {item.quantity}</Text>}
-                  </View>
-                  <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteItem(item.id)}>
-                    <Trash2 size={18} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
-              ))}
+      <View style={styles.listContainer}>
+        <View style={styles.listHeader}>
+          <Text style={styles.listHeaderText}>Artículos</Text>
+          <Text style={styles.listCountText}>
+            {shoppingList.filter((item) => !item.completed).length} pendientes ·{" "}
+            {shoppingList.filter((item) => item.completed).length} completados
+          </Text>
+        </View>
+
+        <FlatList
+          data={shoppingList.sort((a, b) => {
+            // Ordenar por completado (primero no completados) y luego por id (para mantener orden de creación)
+            if (a.completed !== b.completed) {
+              return a.completed ? 1 : -1
+            }
+            return a.id > b.id ? -1 : 1
+          })}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No hay artículos en la lista de la compra</Text>
+              <Text style={styles.emptySubtext}>Añade artículos usando el campo de arriba</Text>
             </View>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <ShoppingCart size={48} color="#d1d5db" />
-            <Text style={styles.emptyStateText}>Tu lista de la compra está vacía</Text>
-            <Text style={styles.emptyStateSubtext}>Añade artículos usando el botón +</Text>
-          </View>
-        )}
-      </ScrollView>
+          }
+        />
+      </View>
 
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Plus color="white" size={24} />
-      </TouchableOpacity>
-
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
-              <X size={24} color="#6b7280" />
-            </TouchableOpacity>
-
-            <Text style={styles.modalTitle}>Añadir artículo</Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Nombre del artículo *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Leche, Pan, Huevos..."
-                value={itemName}
-                onChangeText={setItemName}
-              />
+            <Text style={styles.modalTitle}>Editar artículo</Text>
+            
+            <Text style={styles.inputLabel}>Nombre</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Nombre del artículo"
+            />
+            
+            <Text style={styles.inputLabel}>Cantidad</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editQuantity}
+              onChangeText={setEditQuantity}
+              placeholder="Cantidad"
+              keyboardType="numeric"
+            />
+            
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={saveEditedItem}>
+                <Text style={styles.saveButtonText}>Guardar</Text>
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad (opcional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: 1L, 500g, 2 unidades..."
-                value={itemQuantity}
-                onChangeText={setItemQuantity}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Categoría (opcional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Lácteos, Frutas, Limpieza..."
-                value={itemCategory}
-                onChangeText={setItemCategory}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.addButton, !itemName.trim() && styles.addButtonDisabled]}
-              onPress={handleAddItem}
-              disabled={!itemName.trim()}
-            >
-              <Text style={styles.addButtonText}>Añadir a la lista</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -194,53 +194,76 @@ export default function ShoppingList() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  filterContainer: {
-    flexDirection: "row",
-    padding: 12,
     backgroundColor: "#f9fafb",
+  },
+  header: {
+    backgroundColor: "#fff",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
+    borderBottomColor: "#f3f4f6",
   },
-  filterButton: {
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1f2937",
+    textAlign: "center",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  input: {
     flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
+    height: 50,
+    backgroundColor: "#f3f4f6",
     borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#1f2937",
   },
-  activeFilter: {
-    backgroundColor: "#e0e7ff",
+  addButton: {
+    width: 50,
+    height: 50,
+    backgroundColor: THEME_COLORS.primary,
+    borderRadius: 8,
+    marginLeft: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  filterText: {
-    fontSize: 14,
-    fontWeight: "500",
+  listContainer: {
+    flex: 1,
+  },
+  listHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#f9fafb",
+  },
+  listHeaderText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4b5563",
+  },
+  listCountText: {
+    fontSize: 12,
     color: "#6b7280",
   },
-  activeFilterText: {
-    color: THEME_COLORS.primary,
-    fontWeight: "600",
-  },
-  itemList: {
+  list: {
     flex: 1,
     padding: 16,
   },
-  categorySection: {
-    marginBottom: 16,
-  },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#4b5563",
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  itemCard: {
+  itemContainer: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -248,70 +271,58 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  checkboxContainer: {
+    marginRight: 12,
+  },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 4,
     borderWidth: 2,
     borderColor: THEME_COLORS.primary,
-    marginRight: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   checkboxChecked: {
     backgroundColor: THEME_COLORS.primary,
   },
-  itemInfo: {
+  itemDetails: {
     flex: 1,
   },
-  itemName: {
+  itemText: {
     fontSize: 16,
-    fontWeight: "500",
     color: "#1f2937",
   },
-  itemCompleted: {
+  itemTextChecked: {
     textDecorationLine: "line-through",
-    color: "#9ca3af",
+    color: "#6b7280",
   },
-  itemQuantity: {
+  quantityText: {
     fontSize: 14,
     color: "#6b7280",
     marginTop: 4,
   },
-  deleteButton: {
+  itemActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionButton: {
     padding: 8,
   },
-  emptyState: {
+  emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingVertical: 40,
   },
-  emptyStateText: {
-    fontSize: 18,
+  emptyText: {
+    fontSize: 16,
     fontWeight: "600",
     color: "#6b7280",
-    marginTop: 16,
   },
-  emptyStateSubtext: {
+  emptySubtext: {
     fontSize: 14,
     color: "#9ca3af",
     marginTop: 8,
-  },
-  fab: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: THEME_COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
   },
   modalContainer: {
     flex: 1,
@@ -320,54 +331,63 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: "90%",
+    width: "80%",
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 20,
-    maxHeight: "80%",
-  },
-  closeButton: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 10,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     color: "#1f2937",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  inputContainer: {
     marginBottom: 16,
+    textAlign: "center",
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     color: "#4b5563",
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  input: {
+  modalInput: {
     backgroundColor: "#f3f4f6",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    marginBottom: 16,
   },
-  addButton: {
-    backgroundColor: THEME_COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
+  modalButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 8,
   },
-  addButtonDisabled: {
-    backgroundColor: "#c7d2fe",
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
   },
-  addButtonText: {
-    color: "#fff",
+  cancelButton: {
+    backgroundColor: "#f3f4f6",
+    marginRight: 8,
+  },
+  saveButton: {
+    backgroundColor: THEME_COLORS.primary,
+    marginLeft: 8,
+  },
+  cancelButtonText: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#4b5563",
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 })
-

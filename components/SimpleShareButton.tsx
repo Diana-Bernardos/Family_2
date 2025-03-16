@@ -8,7 +8,9 @@ import {
   View,
   FlatList,
   Alert,
-  Image
+  Image,
+  Platform,
+  Share
 } from 'react-native';
 import { Share2, Check, X } from 'lucide-react-native';
 import { useFamilyStore } from '../stores/familyStore';
@@ -39,7 +41,32 @@ const SimpleShareButton: React.FC<SimpleShareButtonProps> = ({
 
   // Abrir el modal
   const openShareModal = () => {
+    console.log("Abriendo modal de compartir"); // Depuración
+    if (members.length === 0) {
+      // Si no hay miembros, usar la API nativa de compartir
+      handleNativeShare();
+      return;
+    }
     setModalVisible(true);
+  };
+
+  // Usar la API nativa de compartir del dispositivo
+  const handleNativeShare = async () => {
+    try {
+      const result = await Share.share({
+        message: `${title} - Comparte con tu familia`,
+        title: title,
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log("Contenido compartido con éxito");
+      } else if (result.action === Share.dismissedAction) {
+        console.log("Compartir cancelado");
+      }
+    } catch (error) {
+      console.error("Error al compartir:", error);
+      Alert.alert("Error", "No se pudo compartir el contenido");
+    }
   };
 
   // Seleccionar/deseleccionar un miembro
@@ -53,6 +80,7 @@ const SimpleShareButton: React.FC<SimpleShareButtonProps> = ({
 
   // Compartir con los miembros seleccionados
   const shareWithMembers = () => {
+    console.log("Compartiendo con miembros:", selectedMembers); // Depuración
     if (selectedMembers.length === 0) {
       setModalVisible(false);
       return;
@@ -97,6 +125,7 @@ const SimpleShareButton: React.FC<SimpleShareButtonProps> = ({
       <TouchableOpacity
         style={[styles.shareButton, style]}
         onPress={openShareModal}
+        activeOpacity={0.7} // Asegura feedback visual
       >
         <Share2 size={size} color={iconColor} />
         {buttonText && <Text style={[styles.buttonText, {color: iconColor}]}>{buttonText}</Text>}
@@ -121,8 +150,9 @@ const SimpleShareButton: React.FC<SimpleShareButtonProps> = ({
                   setModalVisible(false);
                 }} 
                 style={styles.closeButton}
+                activeOpacity={0.7}
               >
-                <X size={24} color={THEME_COLORS.text} />
+                <X size={24} color={THEME_COLORS.text || "#1f2937"} />
               </TouchableOpacity>
             </View>
             
@@ -141,6 +171,7 @@ const SimpleShareButton: React.FC<SimpleShareButtonProps> = ({
                       selectedMembers.includes(item.id) && styles.memberItemSelected
                     ]}
                     onPress={() => toggleMemberSelection(item.id)}
+                    activeOpacity={0.7}
                   >
                     {item.avatar && (
                       <Image 
@@ -162,17 +193,31 @@ const SimpleShareButton: React.FC<SimpleShareButtonProps> = ({
               </Text>
             )}
             
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                (selectedMembers.length === 0 || members.length === 0) && styles.confirmButtonDisabled
-              ]}
-              onPress={shareWithMembers}
-              disabled={selectedMembers.length === 0 || members.length === 0}
-            >
-              <Share2 size={20} color="#fff" />
-              <Text style={styles.confirmButtonText}>Compartir</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setSelectedMembers([]);
+                  setModalVisible(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  selectedMembers.length === 0 && styles.confirmButtonDisabled
+                ]}
+                onPress={shareWithMembers}
+                disabled={selectedMembers.length === 0}
+                activeOpacity={0.7}
+              >
+                <Share2 size={20} color="#fff" />
+                <Text style={styles.confirmButtonText}>Compartir</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -185,6 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
+    marginRight: 8,
   },
   buttonText: {
     marginLeft: 8,
@@ -198,7 +244,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '85%',
-    backgroundColor: THEME_COLORS.card || '#fff',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
@@ -218,14 +264,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: THEME_COLORS.text || '#1f2937',
+    color: '#1f2937',
   },
   closeButton: {
     padding: 4,
   },
   shareText: {
     fontSize: 16,
-    color: THEME_COLORS.muted || '#6b7280',
+    color: '#6b7280',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -240,10 +286,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     marginVertical: 4,
-    backgroundColor: THEME_COLORS.light || '#f3f4f6',
+    backgroundColor: '#f3f4f6',
   },
   memberItemSelected: {
-    backgroundColor: THEME_COLORS.light || '#f3f4f6',
+    backgroundColor: '#f3f4f6',
     borderColor: THEME_COLORS.primary,
     borderWidth: 1,
   },
@@ -255,14 +301,34 @@ const styles = StyleSheet.create({
   },
   memberName: {
     fontSize: 16,
-    color: THEME_COLORS.text || '#1f2937',
+    color: '#1f2937',
     flex: 1,
   },
   noMembersText: {
     fontSize: 14,
-    color: THEME_COLORS.muted || '#6b7280',
+    color: '#6b7280',
     textAlign: 'center',
     marginVertical: 20,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 16,
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+    flex: 1,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#6b7280',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   confirmButton: {
     flexDirection: 'row',
@@ -270,13 +336,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: THEME_COLORS.primary,
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    marginTop: 16,
-    width: '100%',
+    flex: 1,
+    marginLeft: 8,
   },
   confirmButtonDisabled: {
-    backgroundColor: THEME_COLORS.muted || '#9ca3af',
+    backgroundColor: '#9ca3af',
   },
   confirmButtonText: {
     fontSize: 16,

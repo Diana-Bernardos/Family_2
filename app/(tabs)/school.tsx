@@ -6,6 +6,7 @@ import { Calendar as CalendarComponent } from "react-native-calendars"
 import { Plus, Trash2, MapPin, Clock, BookOpen } from "lucide-react-native"
 import { useFamilyStore } from "../../stores/familyStore"
 import AddSchoolActivity from "../../components/AddSchoolActivity"
+import ShareButton from "../../components/SimpleShareButton"
 import { THEME_COLORS } from "../../constants/theme"
 
 export default function SchoolCalendar() {
@@ -75,7 +76,17 @@ export default function SchoolCalendar() {
             return (
               <View key={activity.id} style={[styles.activityCard, { borderLeftColor: activity.color }]}>
                 <View style={styles.activityInfo}>
-                  <Text style={styles.activityTitle}>{activity.title}</Text>
+                  <View style={styles.activityHeader}>
+                    <Text style={styles.activityTitle}>{activity.title}</Text>
+                    
+                    {/* Botón de compartir implementado aquí */}
+                    <ShareButton 
+                      contentId={activity.id}
+                      contentType="school"
+                      contentTitle={activity.title}
+                      size={18}
+                    />
+                  </View>
 
                   {activity.time && (
                     <View style={styles.activityDetail}>
@@ -167,11 +178,17 @@ const styles = StyleSheet.create({
   activityInfo: {
     flex: 1,
   },
+  activityHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   activityTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: "#1f2937",
-    marginBottom: 6,
+    flex: 1,
   },
   activityDetail: {
     flexDirection: "row",
@@ -255,4 +272,3 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
 })
-

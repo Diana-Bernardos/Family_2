@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Alert } from "react-native"
-import { Plus, Trash2, Calendar, ChevronRight } from "lucide-react-native"
+import { Plus, Trash2, Calendar, ChevronRight, Share2 } from "lucide-react-native"
 import { useFamilyStore } from "../../stores/familyStore"
 import AddFamilyMember from "../../components/AddFamilyMember"
+import ShareButton from "../../components/SimpleShareButton"
 import { THEME_COLORS } from "../../constants/theme"
 import { useRouter } from "expo-router"
 
@@ -38,6 +39,40 @@ export default function FamilyMembers() {
     router.push(`/member/${memberId}`)
   }
 
+  // Función para compartir los eventos de un miembro
+  const renderMemberEvents = (memberId: string) => {
+    const memberEvents = events.filter((event) => event.memberId === memberId)
+    if (memberEvents.length === 0) return null
+
+    // Obtener el evento más próximo
+    const upcomingEvents = memberEvents
+      .filter(event => {
+        const eventDate = new Date(event.date)
+        const today = new Date()
+        return eventDate >= today
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+    const nextEvent = upcomingEvents.length > 0 ? upcomingEvents[0] : null
+
+    return nextEvent ? (
+      <View style={styles.eventPreview}>
+        <View style={styles.eventPreviewContent}>
+          <Text style={styles.nextEventLabel}>Próximo evento:</Text>
+          <Text style={styles.nextEventTitle}>{nextEvent.title}</Text>
+          <Text style={styles.nextEventDate}>{nextEvent.date} • {nextEvent.time}</Text>
+        </View>
+        
+        <ShareButton
+          contentId={nextEvent.id}
+          contentType="event"
+          contentTitle={nextEvent.title}
+          size={18}
+        />
+      </View>
+    ) : null
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.memberList}>
@@ -45,34 +80,38 @@ export default function FamilyMembers() {
           members.map((member) => {
             const eventCount = countEventsByMember(member.id)
             return (
-              <TouchableOpacity
-                key={member.id}
-                style={styles.memberCard}
-                onPress={() => navigateToMemberCalendar(member.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.memberInfo}>
-                  <Image source={{ uri: member.avatar }} style={styles.avatar} />
-                  <View style={styles.memberDetails}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    <Text style={styles.eventCount}>
-                      {eventCount} {eventCount === 1 ? "evento" : "eventos"}
-                    </Text>
+              <View key={member.id} style={styles.memberCardContainer}>
+                <TouchableOpacity
+                  style={styles.memberCard}
+                  onPress={() => navigateToMemberCalendar(member.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.memberInfo}>
+                    <Image source={{ uri: member.avatar }} style={styles.avatar} />
+                    <View style={styles.memberDetails}>
+                      <Text style={styles.memberName}>{member.name}</Text>
+                      <Text style={styles.eventCount}>
+                        {eventCount} {eventCount === 1 ? "evento" : "eventos"}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.memberActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={(e) => {
-                      e.stopPropagation()
-                      handleDeleteMember(member.id)
-                    }}
-                  >
-                    <Trash2 size={20} color="#ef4444" />
-                  </TouchableOpacity>
-                  <ChevronRight size={20} color={THEME_COLORS.primary} />
-                </View>
-              </TouchableOpacity>
+                  <View style={styles.memberActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={(e) => {
+                        e.stopPropagation()
+                        handleDeleteMember(member.id)
+                      }}
+                    >
+                      <Trash2 size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                    <ChevronRight size={20} color={THEME_COLORS.primary} />
+                  </View>
+                </TouchableOpacity>
+                
+                {/* Mostrar vista previa de próximo evento con botón de compartir */}
+                {renderMemberEvents(member.id)}
+              </View>
             )
           })
         ) : (
@@ -113,6 +152,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  memberCardContainer: {
+    marginBottom: 16,
+  },
   memberCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -120,7 +162,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#fff",
     borderRadius: 12,
-    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -157,6 +198,35 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     marginRight: 8,
+  },
+  eventPreview: {
+    marginTop: 8,
+    marginLeft: 16,
+    marginRight: 16,
+    padding: 12,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  eventPreviewContent: {
+    flex: 1
+  },
+  nextEventLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 2,
+  },
+  nextEventTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 2,
+  },
+  nextEventDate: {
+    fontSize: 12,
+    color: "#6b7280",
   },
   emptyState: {
     alignItems: "center",
@@ -203,4 +273,3 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
 })
-

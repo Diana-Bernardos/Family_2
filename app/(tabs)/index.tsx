@@ -6,6 +6,7 @@ import { Calendar as CalendarComponent } from "react-native-calendars"
 import { Plus, Calendar } from "lucide-react-native"
 import { useFamilyStore } from "../../stores/familyStore"
 import AddEvent from "../../components/AddEvent"
+import ShareButton from "../../components/SimpleShareButton"
 import { THEME_COLORS } from "../../constants/theme"
 import { useRouter } from "expo-router"
 
@@ -89,7 +90,17 @@ export default function FamilyCalendar() {
             return (
               <View key={event.id} style={[styles.eventCard, { borderLeftColor: event.color }]}>
                 <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
+                  <View style={styles.eventHeader}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    
+                    {/* Botón de compartir implementado aquí */}
+                    <ShareButton 
+                      contentId={event.id}
+                      contentType="event"
+                      contentTitle={event.title}
+                      size={18}
+                    />
+                  </View>
                   <Text style={styles.eventTime}>{event.time}</Text>
 
                   {member && (
@@ -202,11 +213,17 @@ const styles = StyleSheet.create({
   eventInfo: {
     flex: 1,
   },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   eventTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: "#1f2937",
-    marginBottom: 4,
+    flex: 1,
   },
   eventTime: {
     fontSize: 14,
@@ -273,4 +290,3 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
 })
-
