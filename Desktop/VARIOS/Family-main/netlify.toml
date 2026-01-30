@@ -1,7 +1,7 @@
 [build]
   base = "frontend"
   publish = "build"
-  command = "npm i && npm run build"
+  command = "CI=false npm i && npm run build"
 
 [functions]
   directory = "../backend/functions"
