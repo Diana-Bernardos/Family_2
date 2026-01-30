@@ -1,15 +1,15 @@
 [build]
-  base = "frontend"
-  publish = "build"
-  command = "CI=false npm i && npm run build"
+  base = "."
+  publish = "frontend/build"
+  command = "cd frontend && CI=false npm install && npm run build"
 
 [functions]
-  directory = "../backend/functions"
+  directory = "backend/functions"
   external_node_modules = ["sqlite3"] 
 
 [dev]
   framework = "#static"
-  command = "npm start"
+  command = "cd frontend && npm start"
   targetPort = 3000
 
 [[redirects]]
