@@ -1,0 +1,25 @@
+.form-page {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.form {
+    padding: 2rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-group select[multiple] {
+    min-height: 120px;
+}

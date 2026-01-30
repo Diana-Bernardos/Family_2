@@ -1,0 +1,9 @@
+node_modules/
+data/*.db
+data/*.db-journal
+.env
+*.log
+uploads/avatars/*
+uploads/documents/*
+!uploads/avatars/.gitkeep
+!uploads/documents/.gitkeep
