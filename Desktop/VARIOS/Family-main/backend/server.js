@@ -59,10 +59,13 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || config.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
-    console.log(`📊 Base de datos: SQLite (family.db)`);
-});
+// Start server only if not running in lambda/serverless environment
+if (require.main === module) {
+    const PORT = process.env.PORT || config.PORT || 3001;
+    app.listen(PORT, () => {
+        console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
+        console.log(`📊 Base de datos: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite (family.db)'}`);
+    });
+}
 
 module.exports = app;
